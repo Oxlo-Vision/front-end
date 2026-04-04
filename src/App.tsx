@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import './index.css'
 
 // ── SVG Icons inlined ──────────────────────────────────────────
@@ -76,7 +77,7 @@ export default function App() {
             <li><a href="#features">Características</a></li>
             <li><a href="#how">Cómo funciona</a></li>
             <li><a href="#outputs">Outputs</a></li>
-            <li><a href="#cta" className="nav__cta">Empezar gratis</a></li>
+            <li><Link to="/app" className="nav__cta">Empezar gratis</Link></li>
           </ul>
         </div>
       </nav>
@@ -103,12 +104,12 @@ export default function App() {
             </p>
 
             <div className="hero__actions">
-              <a href="#cta" className="btn-primary">
+              <Link to="/app" className="btn-primary">
                 <span>Empezar gratis</span>
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-              </a>
+              </Link>
               <a href="#how" className="btn-secondary">
                 Ver demo
               </a>
@@ -293,12 +294,12 @@ export default function App() {
             Solo sube tu PDF y deja que Oxlo Vision haga el resto.
           </p>
           <div className="cta-banner__actions">
-            <a href="#" className="btn-primary">
+            <Link to="/app" className="btn-primary">
               Empezar gratis — es gratis
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-            </a>
+            </Link>
             <a href="#features" className="btn-secondary">Ver características</a>
           </div>
         </div>
