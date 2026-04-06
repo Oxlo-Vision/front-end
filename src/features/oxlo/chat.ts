@@ -1,6 +1,7 @@
 import type { MindMapData } from '../mindmap/types'
 import type { ConceptMapData } from '../conceptmap/types'
 import type { DiagramArtifact, DiagramKind } from '../diagram/types'
+import { normalizeMermaidScript } from '../diagram/utils'
 import type { SkillFile } from '../skills/types'
 
 function getBackendUrl(): string {
@@ -8,16 +9,81 @@ function getBackendUrl(): string {
 }
 
 type CatalogEndpoint = {
+  category?: string
+  displayName?: string
   model: string
+  apiPath?: string
 }
 
 type CatalogResponse = {
-  byCategory?: {
-    reasoning?: CatalogEndpoint[]
-  }
+  byCategory?: Record<string, CatalogEndpoint[]>
+}
+
+export type ChatModelOption = {
+  category: string
+  displayName: string
+  model: string
+  strengthScore: number
 }
 
 let cachedReasoningModel: string | null = null
+let cachedChatModelOptions: ChatModelOption[] | null = null
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+function estimateStrengthScore(model: string, category: string): number {
+  const lower = model.toLowerCase()
+
+  const billionMatch = lower.match(/(\d+(?:\.\d+)?)b/)
+  const millionMatch = lower.match(/(\d+(?:\.\d+)?)m/)
+
+  let score = 0
+
+  if (billionMatch) {
+    score += Math.round(Number.parseFloat(billionMatch[1]) * 100)
+  } else if (millionMatch) {
+    score += Math.round(Number.parseFloat(millionMatch[1]))
+  }
+
+  if (lower.includes('thinking')) score += 120
+  if (lower.includes('r1')) score += 80
+  if (lower.includes('v3')) score += 60
+  if (lower.includes('oss')) score += 40
+  if (lower.includes('claw')) score += 140
+
+  if (category === 'reasoning') score += 35
+  if (category === 'coding') score += 20
+
+  return score
+}
+
+function fallbackChatModels(): ChatModelOption[] {
+  const fallback = [
+    { category: 'chat', displayName: 'Llama 3.2 3B', model: 'llama-3.2-3b' },
+    { category: 'chat', displayName: 'Gemma 3 4B', model: 'gemma-3-4b' },
+    { category: 'chat', displayName: 'Mistral 7B', model: 'mistral-7b' },
+    { category: 'reasoning', displayName: 'DeepSeek R1 8B', model: 'deepseek-r1-8b' },
+    { category: 'chat', displayName: 'Llama 3.1 8B', model: 'llama-3.1-8b' },
+    { category: 'chat', displayName: 'Ministral 14B', model: 'ministral-14b' },
+    { category: 'reasoning', displayName: 'GPT-OSS 20B', model: 'gpt-oss-20b' },
+    { category: 'chat', displayName: 'Gemma 3 27B', model: 'gemma-3-27b' },
+    { category: 'chat', displayName: 'Qwen 3 32B', model: 'qwen-3-32b' },
+    { category: 'reasoning', displayName: 'DeepSeek R1 70B', model: 'deepseek-r1-70b' },
+    { category: 'reasoning', displayName: 'GPT-OSS 120B', model: 'gpt-oss-120b' },
+    { category: 'reasoning', displayName: 'Oxlo Claw Model', model: 'oxlo-claw' },
+  ]
+
+  return fallback
+    .map((item) => ({
+      ...item,
+      strengthScore: estimateStrengthScore(item.model, item.category),
+    }))
+    .sort((a, b) => a.strengthScore - b.strengthScore || a.displayName.localeCompare(b.displayName))
+}
 
 async function resolveReasoningModel(): Promise<string> {
   if (cachedReasoningModel) {
@@ -41,33 +107,151 @@ async function resolveReasoningModel(): Promise<string> {
   return cachedReasoningModel
 }
 
-async function chatCompletions(messages: Array<{ role: 'system' | 'user'; content: string }>, maxTokens: number): Promise<string> {
-  const model = await resolveReasoningModel()
+async function chatCompletions(
+  messages: Array<{ role: 'system' | 'user'; content: string }>,
+  maxTokens: number,
+  modelOverride?: string,
+): Promise<string> {
+  const model = modelOverride ?? await resolveReasoningModel()
 
-  const response = await fetch(`${getBackendUrl()}/v1/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      messages,
-    }),
-  })
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 45000)
 
-  if (!response.ok) {
-    throw new Error(`Error Oxlo completions HTTP ${response.status}`)
+    try {
+      const response = await fetch(`${getBackendUrl()}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxTokens,
+          messages,
+        }),
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        const transient = response.status === 502 || response.status === 503 || response.status === 504
+
+        if (transient && attempt === 0) {
+          await delay(700)
+          continue
+        }
+
+        if (response.status === 504) {
+          throw new Error('Oxlo tardo demasiado en responder (504 Gateway Timeout). Intenta de nuevo o usa un modelo mas ligero.')
+        }
+
+        throw new Error(`Error Oxlo completions HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      const content = data?.choices?.[0]?.message?.content
+
+      if (!content || typeof content !== 'string') {
+        throw new Error('Respuesta de Oxlo sin contenido util.')
+      }
+
+      return content.trim()
+    } catch (error) {
+      const isAbort = error instanceof DOMException && error.name === 'AbortError'
+
+      if ((isAbort || error instanceof TypeError) && attempt === 0) {
+        await delay(700)
+        continue
+      }
+
+      if (isAbort) {
+        throw new Error('Tiempo de espera agotado al llamar Oxlo. Intenta con una pregunta mas corta o un modelo mas ligero.')
+      }
+
+      throw error
+    } finally {
+      clearTimeout(timeoutId)
+    }
   }
 
-  const data = await response.json()
-  const content = data?.choices?.[0]?.message?.content
+  throw new Error('No se pudo completar la solicitud a Oxlo tras reintento.')
+}
 
-  if (!content || typeof content !== 'string') {
-    throw new Error('Respuesta de Oxlo sin contenido util.')
+export async function getChatModelOptions(): Promise<ChatModelOption[]> {
+  if (cachedChatModelOptions && cachedChatModelOptions.length > 0) {
+    return cachedChatModelOptions
   }
 
-  return content.trim()
+  try {
+    const response = await fetch(`${getBackendUrl()}/api/ias`)
+    if (!response.ok) {
+      cachedChatModelOptions = fallbackChatModels()
+      return cachedChatModelOptions
+    }
+
+    const catalog = (await response.json()) as CatalogResponse
+    const source = catalog.byCategory ?? {}
+    const chatCategories = ['chat', 'reasoning', 'coding']
+
+    const merged = chatCategories.flatMap((category) => {
+      const items = source[category] ?? []
+      return items
+        .filter((item) => typeof item.model === 'string' && (item.apiPath ?? '/v1/chat/completions') === '/v1/chat/completions')
+        .map((item) => ({
+          category,
+          displayName: item.displayName || item.model,
+          model: item.model,
+          strengthScore: estimateStrengthScore(item.model, category),
+        }))
+    })
+
+    const dedup = new Map<string, ChatModelOption>()
+    merged.forEach((item) => {
+      if (!dedup.has(item.model)) {
+        dedup.set(item.model, item)
+      }
+    })
+
+    const sorted = Array.from(dedup.values()).sort(
+      (a, b) => a.strengthScore - b.strengthScore || a.displayName.localeCompare(b.displayName),
+    )
+
+    cachedChatModelOptions = sorted.length > 0 ? sorted : fallbackChatModels()
+  } catch {
+    cachedChatModelOptions = fallbackChatModels()
+  }
+
+  return cachedChatModelOptions
+}
+
+export async function chatAboutPdfWithOxlo(params: {
+  model: string
+  question: string
+  fileName: string
+  extractedText: string
+  summary: string
+  keyPoints: string[]
+}): Promise<string> {
+  const contextText = params.extractedText.slice(0, 12000)
+  const summaryText = params.summary.slice(0, 2200)
+  const keyPointsText = params.keyPoints.slice(0, 10).map((point) => `- ${point}`).join('\n')
+
+  return chatCompletions(
+    [
+      {
+        role: 'system',
+        content:
+          'Responde en espanol usando el contexto del PDF cargado. Si la pregunta no se puede responder con el contexto, dilo claramente y sugiere que suban otro documento.',
+      },
+      {
+        role: 'user',
+        content:
+          `Archivo: ${params.fileName}\n\nResumen del PDF:\n${summaryText}\n\nPuntos clave:\n${keyPointsText || '- Sin puntos clave.'}` +
+          `\n\nTexto del PDF (recortado):\n${contextText}\n\nPregunta del usuario:\n${params.question}`,
+      },
+    ],
+    900,
+    params.model,
+  )
 }
 
 export async function generateSummaryWithOxlo(text: string): Promise<string> {
@@ -222,11 +406,13 @@ export async function generateDiagramWithOxlo(fileName: string, text: string, su
     throw new Error('JSON de diagrama invalido.')
   }
 
+  const normalizedMermaid = normalizeMermaidScript(parsed.mermaid, parsed.kind)
+
   return {
     kind: parsed.kind,
     title: parsed.title,
     rationale: parsed.rationale || 'Seleccionado por contexto del documento.',
-    mermaid: parsed.mermaid,
+    mermaid: normalizedMermaid,
   }
 }
 

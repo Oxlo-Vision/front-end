@@ -24,7 +24,8 @@ ya esta listo un microservicio en micronaut con java para el proyecto con su res
 - [x] Visualizacion de resultados en tabs: resumen, puntos clave, markdown y texto extraido.
 - [x] Generacion de mapas mentales basada en contenido real del PDF (React Flow).
 - [x] Generacion de mapas conceptuales basada en contenido real del PDF.
-- [x] Generacion y descarga de skills listas para asistentes IA.
+- [x] Chat sobre el PDF cargado con seleccion de modelo Oxlo (debil a fuerte).
+- [x] Generacion de skills listas para asistentes IA (copiar y pegar).
 - [x] Exportacion de diagramas UML/ER desde contenido procesado.
 
 ## Notas de ejecucion

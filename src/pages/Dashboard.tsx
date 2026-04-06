@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import '../dashboard.css'
 import { extractPdfText, type ExtractedPdf } from '../features/pdf/extractPdfText'
@@ -7,6 +7,9 @@ import {
   generateDiagramWithOxlo,
   generateMindMapWithOxlo,
   generateSkillFilesWithOxlo,
+  getChatModelOptions,
+  chatAboutPdfWithOxlo,
+  type ChatModelOption,
   generateSummaryWithOxlo,
 } from '../features/oxlo/chat'
 import { MindMapPanel } from '../features/mindmap/components/MindMapPanel'
@@ -17,12 +20,14 @@ import { conceptMapToFlow, fallbackConceptMap } from '../features/conceptmap/uti
 import type { ConceptMapData } from '../features/conceptmap/types'
 import type { DiagramArtifact } from '../features/diagram/types'
 import { diagramFileExtension, diagramKindLabel, fallbackDiagram } from '../features/diagram/utils'
+import { MermaidPreview } from '../features/diagram/components/MermaidPreview'
 import type { SkillFile } from '../features/skills/types'
 import { fallbackSkillFiles } from '../features/skills/utils'
 
 type AppState = 'idle' | 'processing' | 'done'
 type AiMode = 'unknown' | 'oxlo' | 'fallback'
-type ResultTab = 'summary' | 'mindmap' | 'conceptmap' | 'diagram' | 'skills' | 'keypoints' | 'markdown' | 'raw'
+type ResultTab = 'summary' | 'mindmap' | 'conceptmap' | 'diagram' | 'chat' | 'skills' | 'keypoints' | 'markdown' | 'raw'
+type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
 const PROCESSING_STEPS = [
   'Validando archivo PDF',
@@ -41,6 +46,7 @@ const RESULT_TABS: { id: ResultTab; label: string; icon: string }[] = [
   { id: 'mindmap', label: 'Mapa Mental', icon: '🧠' },
   { id: 'conceptmap', label: 'Mapa Conceptual', icon: '🗺️' },
   { id: 'diagram', label: 'Diagramas', icon: '📐' },
+  { id: 'chat', label: 'Chat PDF', icon: '💬' },
   { id: 'skills', label: 'Skills', icon: '🧩' },
   { id: 'keypoints', label: 'Puntos Clave', icon: '🎯' },
   { id: 'markdown', label: 'Archivo .md', icon: '📝' },
@@ -75,6 +81,11 @@ export default function Dashboard() {
   const [conceptMap, setConceptMap] = useState<ConceptMapData | null>(null)
   const [diagram, setDiagram] = useState<DiagramArtifact | null>(null)
   const [skillFiles, setSkillFiles] = useState<SkillFile[]>([])
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatSending, setChatSending] = useState(false)
+  const [chatModelOptions, setChatModelOptions] = useState<ChatModelOption[]>([])
+  const [selectedChatModel, setSelectedChatModel] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -90,6 +101,29 @@ export default function Dashboard() {
     if (!conceptMap) return { nodes: [], edges: [] }
     return conceptMapToFlow(conceptMap)
   }, [conceptMap])
+
+  useEffect(() => {
+    if (appState !== 'done' || extractedText.length < 30) {
+      return
+    }
+
+    let cancelled = false
+
+    const loadModels = async () => {
+      const options = await getChatModelOptions()
+      if (cancelled) return
+      setChatModelOptions(options)
+      if (!selectedChatModel && options.length > 0) {
+        setSelectedChatModel(options[0].model)
+      }
+    }
+
+    void loadModels()
+
+    return () => {
+      cancelled = true
+    }
+  }, [appState, extractedText, selectedChatModel])
 
   const applyExtractionState = (extracted: ExtractedPdf): void => {
     setPages(extracted.pages)
@@ -286,7 +320,45 @@ export default function Dashboard() {
     setConceptMap(null)
     setDiagram(null)
     setSkillFiles([])
+    setChatMessages([])
+    setChatInput('')
+    setChatSending(false)
+    setChatModelOptions([])
+    setSelectedChatModel('')
     setActiveTab('summary')
+  }
+
+  const sendChatMessage = async () => {
+    const question = chatInput.trim()
+    if (!question || chatSending || !selectedChatModel) return
+
+    setChatInput('')
+    setChatSending(true)
+    setChatMessages((prev) => [...prev, { role: 'user', content: question }])
+
+    try {
+      const answer = await chatAboutPdfWithOxlo({
+        model: selectedChatModel,
+        question,
+        fileName,
+        extractedText,
+        summary,
+        keyPoints,
+      })
+
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: answer }])
+    } catch (error) {
+      const errorText = error instanceof Error ? error.message : 'No se pudo completar la respuesta.'
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `No pude responder con el modelo seleccionado. Detalle: ${errorText}`,
+        },
+      ])
+    } finally {
+      setChatSending(false)
+    }
   }
 
   const copyToClipboard = async (value: string) => {
@@ -384,6 +456,7 @@ export default function Dashboard() {
                     { icon: '🧠', label: 'Mapa mental React Flow', checked: true },
                     { icon: '🗺️', label: 'Mapa conceptual IA', checked: true },
                     { icon: '📐', label: 'Diagrama UML/ER contextual', checked: true },
+                    { icon: '💬', label: 'Chat con contexto del PDF', checked: true },
                     { icon: '🧩', label: 'Skill files para IA', checked: true },
                     { icon: '🎯', label: 'Puntos clave', checked: true },
                     { icon: '📝', label: 'Salida Markdown', checked: true },
@@ -529,6 +602,9 @@ export default function Dashboard() {
                       <>
                         <p className="rp-meta">Tipo: {diagramKindLabel(diagram.kind)}</p>
                         <p className="rp-meta">Criterio: {diagram.rationale}</p>
+                        <div className="mermaid-shell">
+                          <MermaidPreview chart={diagram.mermaid} />
+                        </div>
                         <div className="md-preview">
                           <div className="md-header">
                             <span className="code-dot" style={{ background: '#ff5f56' }} />
@@ -541,6 +617,74 @@ export default function Dashboard() {
                       </>
                     )}
                     {!diagram && <p className="rp-body">No hay diagrama disponible.</p>}
+                  </div>
+                )}
+
+                {activeTab === 'chat' && (
+                  <div className="result-panel chat-panel">
+                    <div className="rp-header">
+                      <h3>Chat con contexto del PDF</h3>
+                    </div>
+                    <p className="rp-meta">Pregunta sobre el documento cargado. El modelo usa resumen, puntos clave y texto extraido.</p>
+
+                    <div className="chat-model-row">
+                      <label htmlFor="chat-model">Modelo Oxlo (debil → fuerte)</label>
+                      <select
+                        id="chat-model"
+                        className="chat-model-select"
+                        value={selectedChatModel}
+                        onChange={(event) => setSelectedChatModel(event.target.value)}
+                      >
+                        {chatModelOptions.length === 0 && <option value="">Cargando modelos...</option>}
+                        {chatModelOptions.map((option) => (
+                          <option key={option.model} value={option.model}>
+                            {option.displayName} · {option.category} · score {option.strengthScore}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="chat-thread">
+                      {chatMessages.length === 0 && (
+                        <div className="chat-empty">
+                          Aun no hay mensajes. Prueba con: "Que conclusiones principales tiene este PDF?"
+                        </div>
+                      )}
+                      {chatMessages.map((message, index) => (
+                        <div key={`${message.role}-${index}`} className={`chat-message chat-message--${message.role}`}>
+                          <div className="chat-message-role">{message.role === 'user' ? 'Tu' : 'Oxlo'}</div>
+                          <div className="chat-message-text">{message.content}</div>
+                        </div>
+                      ))}
+                      {chatSending && (
+                        <div className="chat-message chat-message--assistant">
+                          <div className="chat-message-role">Oxlo</div>
+                          <div className="chat-message-text">Pensando respuesta...</div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="chat-input-row">
+                      <textarea
+                        className="chat-input"
+                        value={chatInput}
+                        placeholder="Escribe tu pregunta sobre el PDF..."
+                        onChange={(event) => setChatInput(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' && !event.shiftKey) {
+                            event.preventDefault()
+                            void sendChatMessage()
+                          }
+                        }}
+                      />
+                      <button
+                        className="chat-send"
+                        onClick={() => void sendChatMessage()}
+                        disabled={chatSending || !selectedChatModel || chatInput.trim().length === 0}
+                      >
+                        Enviar
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -560,12 +704,6 @@ export default function Dashboard() {
                           </div>
                           <div className="skill-file-actions">
                             <button className="rp-copy" onClick={() => void copyToClipboard(skillFile.content)}>Copiar</button>
-                            <button
-                              className="rp-copy"
-                              onClick={() => downloadTextFile(skillFile.fileName, skillFile.content, 'text/markdown;charset=utf-8')}
-                            >
-                              Descargar
-                            </button>
                           </div>
                           <pre className="skill-file-preview"><code>{skillFile.content.slice(0, 380)}{skillFile.content.length > 380 ? '\n...' : ''}</code></pre>
                         </div>
