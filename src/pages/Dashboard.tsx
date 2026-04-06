@@ -1,344 +1,270 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist'
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import { recognize } from 'tesseract.js'
 import '../dashboard.css'
 
-// ── Types ──────────────────────────────────────────────────────
-type AppState = 'idle' | 'dragging' | 'processing' | 'done'
-type ResultTab = 'summary' | 'mindmap' | 'keypoints' | 'markdown' | 'skill'
+type AppState = 'idle' | 'processing' | 'done'
+type ResultTab = 'summary' | 'keypoints' | 'markdown' | 'raw'
 
-// ── Mock data ──────────────────────────────────────────────────
-const MOCK_FILE = { name: 'research_paper_2024.pdf', size: '2.4 MB', pages: 87 }
+type ExtractedPdf = {
+  pages: number
+  ocrPages: number
+  text: string
+}
 
 const PROCESSING_STEPS = [
-  { label: 'Cargando documento…',  dur: 800  },
-  { label: 'Extrayendo texto…',    dur: 900  },
-  { label: 'Analizando contexto…', dur: 1100 },
-  { label: 'Generando resumen…',   dur: 900  },
-  { label: 'Construyendo mapas…',  dur: 1000 },
-  { label: 'Finalizando…',         dur: 600  },
+  'Validando archivo PDF',
+  'Leyendo paginas con PDF.js',
+  'Aplicando OCR a paginas escaneadas',
+  'Generando resumen con Oxlo',
+  'Finalizando',
 ]
 
 const RESULT_TABS: { id: ResultTab; label: string; icon: string }[] = [
-  { id: 'summary',   label: 'Resumen',      icon: '📋' },
-  { id: 'mindmap',   label: 'Mapa Mental',  icon: '🧠' },
+  { id: 'summary', label: 'Resumen', icon: '📋' },
   { id: 'keypoints', label: 'Puntos Clave', icon: '🎯' },
-  { id: 'markdown',  label: 'Archivo .md',  icon: '📝' },
-  { id: 'skill',     label: 'Skill',        icon: '⚡' },
+  { id: 'markdown', label: 'Archivo .md', icon: '📝' },
+  { id: 'raw', label: 'Texto extraido', icon: '📄' },
 ]
 
-// ── Sub-components ──────────────────────────────────────────────
+GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
-function SummaryPanel() {
-  return (
-    <div className="result-panel">
-      <div className="rp-header">
-        <h3>Resumen Ejecutivo</h3>
-        <button className="rp-copy">Copiar</button>
-      </div>
-      <p className="rp-meta">📄 87 páginas · Generado en 4.2 s</p>
-      <div className="rp-body">
-        <p>Este documento presenta un estudio comparativo sobre <strong>modelos de lenguaje de gran escala (LLMs)</strong> aplicados a la extracción de información estructurada en documentos científicos.</p>
-        <p>Los autores proponen una metodología novedosa basada en <strong>retrieval-augmented generation (RAG)</strong> que supera en un 12.4% a los enfoques tradicionales de fine-tuning en tareas de comprensión lectora especializada.</p>
-        <p>Se evaluaron seis arquitecturas distintas en tres benchmarks públicos, con especial énfasis en la <strong>precisión semántica</strong>, eficiencia computacional y escalabilidad en entornos de producción.</p>
-        <p>Las conclusiones destacan que la combinación de indexación jerárquica y atención cruzada multi-etapa constituye el paradigma más prometedor para 2025, con implicaciones directas para sistemas de búsqueda empresarial y asistentes de IA especializados.</p>
-      </div>
-      <div className="rp-stats">
-        <div className="stat-chip"><span>📊</span> 6 modelos evaluados</div>
-        <div className="stat-chip"><span>🏆</span> +12.4% precisión</div>
-        <div className="stat-chip"><span>📚</span> 3 benchmarks</div>
-        <div className="stat-chip"><span>⏱️</span> 4.2s proceso</div>
-      </div>
-    </div>
-  )
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function MindMapPanel() {
-  const nodes = [
-    { id: 'root', x: 320, y: 200, label: 'LLMs en\nDocumentos', root: true },
-    { id: 'rag',    x: 100, y: 80,  label: 'RAG' },
-    { id: 'arch',   x: 100, y: 200, label: 'Arquitecturas' },
-    { id: 'bench',  x: 100, y: 320, label: 'Benchmarks' },
-    { id: 'results',x: 540, y: 80,  label: 'Resultados' },
-    { id: 'apps',   x: 540, y: 200, label: 'Aplicaciones' },
-    { id: 'future', x: 540, y: 320, label: 'Futuro' },
-    { id: 'rag1',  x: -60, y: 40,  label: 'Indexación\nJerárquica' },
-    { id: 'rag2',  x: -60, y: 120, label: 'Atención\nCruzada' },
-    { id: 'res1',  x: 700, y: 40,  label: '+12.4%\nPrecisión' },
-    { id: 'res2',  x: 700, y: 120, label: 'Escalabilidad' },
-  ]
-  const edges = [
-    ['root','rag'],['root','arch'],['root','bench'],
-    ['root','results'],['root','apps'],['root','future'],
-    ['rag','rag1'],['rag','rag2'],
-    ['results','res1'],['results','res2'],
-  ]
-  const findNode = (id: string) => nodes.find(n => n.id === id)!
-
-  return (
-    <div className="result-panel mindmap-panel">
-      <div className="rp-header">
-        <h3>Mapa Mental</h3>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="rp-copy">Exportar SVG</button>
-          <button className="rp-copy">Exportar JSON</button>
-        </div>
-      </div>
-      <div className="mindmap-canvas">
-        <svg viewBox="-90 10 840 370" className="mindmap-svg">
-          {/* edges */}
-          {edges.map(([a, b]) => {
-            const na = findNode(a), nb = findNode(b)
-            return (
-              <line key={`${a}-${b}`}
-                x1={na.x + 50} y1={na.y + 20}
-                x2={nb.x + 50} y2={nb.y + 20}
-                stroke="rgba(31,255,180,0.25)" strokeWidth="1.5"
-              />
-            )
-          })}
-          {/* nodes */}
-          {nodes.map(n => (
-            <g key={n.id} transform={`translate(${n.x},${n.y})`}>
-              <rect
-                x="0" y="0" width="100" height="40" rx="10"
-                fill={n.root ? 'rgba(31,255,180,0.15)' : 'rgba(17,20,24,0.9)'}
-                stroke={n.root ? 'rgba(31,255,180,0.7)' : 'rgba(31,255,180,0.2)'}
-                strokeWidth={n.root ? 2 : 1}
-              />
-              {n.label.split('\n').map((line, i) => (
-                <text key={i}
-                  x="50" y={n.label.includes('\n') ? 14 + i * 14 : 24}
-                  textAnchor="middle"
-                  fill={n.root ? '#1FFFB4' : '#fff'}
-                  fontSize={n.root ? '10' : '9'}
-                  fontFamily="Inter, sans-serif"
-                  fontWeight={n.root ? '700' : '400'}
-                >{line}</text>
-              ))}
-            </g>
-          ))}
-        </svg>
-      </div>
-    </div>
-  )
+function simpleKeyPoints(text: string): string[] {
+  return text
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 55)
+    .slice(0, 6)
 }
 
-function KeyPointsPanel() {
-  const points = [
-    { cat: 'Metodología', icon: '🔬', items: [
-      'RAG supera fine-tuning en +12.4% en comprensión especializada.',
-      'La indexación jerárquica es clave para la escalabilidad.',
-      'La atención cruzada multi-etapa mejora la coherencia semántica.',
-    ]},
-    { cat: 'Resultados', icon: '📊', items: [
-      'Evaluados en SQuAD 2.0, NaturalQuestions y TriviaQA.',
-      'El modelo propuesto logra el estado del arte en 2 de 3 benchmarks.',
-      'Reducción de latencia del 23% frente al baseline.',
-    ]},
-    { cat: 'Conclusiones', icon: '🏁', items: [
-      'RAG jerárquico es el paradigma dominante para 2025.',
-      'Alta aplicabilidad en búsqueda empresarial y asistentes de IA.',
-      'Se propone código abierto del framework evaluado.',
-    ]},
-  ]
-  return (
-    <div className="result-panel">
-      <div className="rp-header">
-        <h3>Puntos Clave</h3>
-        <button className="rp-copy">Copiar todo</button>
-      </div>
-      <div className="keypoints-grid">
-        {points.map(cat => (
-          <div className="kp-category" key={cat.cat}>
-            <div className="kp-cat-header">
-              <span>{cat.icon}</span>
-              <span>{cat.cat}</span>
-            </div>
-            <ul>
-              {cat.items.map((item, i) => (
-                <li key={i}>
-                  <span className="kp-bullet" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+function buildMarkdown(fileName: string, summary: string, points: string[]): string {
+  const pointsMd = points.map((p) => `- ${p}`).join('\n')
+  return `# Resumen - ${fileName}\n\n## Puntos clave\n${pointsMd || '- Sin puntos clave suficientes.'}\n\n## Resumen ejecutivo\n${summary}`
 }
 
-function MarkdownPanel() {
-  const md = `# Resumen — research_paper_2024.pdf
+async function extractPdfText(file: File, onProgress: (stepIndex: number, progress: number, label: string) => void): Promise<ExtractedPdf> {
+  onProgress(0, 5, PROCESSING_STEPS[0])
+  const fileBuffer = await file.arrayBuffer()
 
-> Generado por Oxlo Vision · 2024-04-04
+  onProgress(1, 15, PROCESSING_STEPS[1])
+  const loadingTask = getDocument({ data: fileBuffer })
+  const pdf = await loadingTask.promise
 
-## 🎯 Puntos Principales
+  const pagesText: string[] = []
+  let ocrPages = 0
 
-- RAG supera fine-tuning en **+12.4%** en comprensión especializada
-- Indexación jerárquica es clave para la escalabilidad
-- Evaluado en SQuAD 2.0, NaturalQuestions y TriviaQA
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum += 1) {
+    const page = await pdf.getPage(pageNum)
+    const textContent = await page.getTextContent()
+    const pageText = (textContent.items as Array<{ str?: string }>)
+      .map((item) => item.str ?? '')
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim()
 
-## 📋 Resumen Ejecutivo
+    const baseProgress = 15 + Math.round((pageNum / pdf.numPages) * 50)
 
-Este documento presenta un estudio comparativo sobre modelos de lenguaje
-de gran escala (LLMs) aplicados a la extracción de información estructurada...
+    if (pageText.length > 25) {
+      pagesText.push(pageText)
+      onProgress(1, baseProgress, `${PROCESSING_STEPS[1]} (pagina ${pageNum}/${pdf.numPages})`)
+      continue
+    }
 
-## 🧠 Mapa Conceptual
+    ocrPages += 1
+    onProgress(2, baseProgress, `${PROCESSING_STEPS[2]} (pagina ${pageNum}/${pdf.numPages})`)
 
-\`\`\`mermaid
-graph TD
-  A[LLMs en Documentos] --> B[RAG]
-  A --> C[Arquitecturas]
-  A --> D[Benchmarks]
-  B --> E[Indexación Jerárquica]
-  B --> F[Atención Cruzada]
-  D --> G[+12.4% Precisión]
-\`\`\`
+    const viewport = page.getViewport({ scale: 2 })
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.ceil(viewport.width)
+    canvas.height = Math.ceil(viewport.height)
+    const context = canvas.getContext('2d')
+    if (!context) {
+      pagesText.push('')
+      continue
+    }
 
-## 📚 Contexto para IA
+    await page.render({ canvas, canvasContext: context, viewport }).promise
+    const ocrResult = await recognize(canvas, 'eng')
+    pagesText.push(ocrResult.data.text.replace(/\s+/g, ' ').trim())
+  }
 
-Este archivo está optimizado como contexto para GitHub Copilot.
-Usa \`@workspace\` para referenciar este conocimiento.`
-
-  return (
-    <div className="result-panel markdownp">
-      <div className="rp-header">
-        <h3>Archivo .md</h3>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="rp-copy">Copiar</button>
-          <button className="rp-copy rp-download">⬇ Descargar</button>
-        </div>
-      </div>
-      <p className="rp-meta">📝 Optimizado para GitHub Copilot y LLMs</p>
-      <div className="md-preview">
-        <div className="md-header">
-          <span className="code-dot" style={{ background: '#ff5f56' }} />
-          <span className="code-dot" style={{ background: '#ffbd2e' }} />
-          <span className="code-dot" style={{ background: '#27c93f' }} />
-          <span className="md-filename">output.md</span>
-        </div>
-        <pre className="md-body"><code>{md}</code></pre>
-      </div>
-    </div>
-  )
+  const text = pagesText.join('\n\n').trim()
+  return {
+    pages: pdf.numPages,
+    ocrPages,
+    text,
+  }
 }
 
-function SkillPanel() {
-  return (
-    <div className="result-panel">
-      <div className="rp-header">
-        <h3>Skill para IA</h3>
-        <button className="rp-copy rp-download">⬇ Descargar .json</button>
-      </div>
-      <p className="rp-meta">⚡ Lista para usar en GitHub Copilot, ChatGPT, Claude y más</p>
-      <div className="skill-cards">
-        <div className="skill-card active">
-          <div className="skill-card-icon">🤖</div>
-          <div>
-            <div className="skill-card-title">GitHub Copilot</div>
-            <div className="skill-card-desc">Skill `.gh-skill.json` lista para importar</div>
-          </div>
-          <span className="skill-badge">Listo</span>
-        </div>
-        <div className="skill-card">
-          <div className="skill-card-icon">💬</div>
-          <div>
-            <div className="skill-card-title">ChatGPT GPT</div>
-            <div className="skill-card-desc">Instrucciones de sistema exportadas</div>
-          </div>
-          <span className="skill-badge">Listo</span>
-        </div>
-        <div className="skill-card">
-          <div className="skill-card-icon">🧩</div>
-          <div>
-            <div className="skill-card-title">VS Code Extension</div>
-            <div className="skill-card-desc">Snippet pack generado automáticamente</div>
-          </div>
-          <span className="skill-badge skill-badge--dim">Próximamente</span>
-        </div>
-      </div>
-      <div className="skill-preview">
-        <div className="md-header">
-          <span className="code-dot" style={{ background: '#ff5f56' }} />
-          <span className="code-dot" style={{ background: '#ffbd2e' }} />
-          <span className="code-dot" style={{ background: '#27c93f' }} />
-          <span className="md-filename">oxlo-skill.json</span>
-        </div>
-        <pre className="md-body"><code>{`{
-  "name": "research_paper_2024 — Oxlo Vision Skill",
-  "version": "1.0.0",
-  "description": "Conocimiento extraído del PDF",
-  "context": "RAG, indexación jerárquica, LLMs...",
-  "keyPoints": [
-    "RAG supera fine-tuning en +12.4%",
-    "Indexación jerárquica escala mejor",
-    "Evaluado en SQuAD 2.0"
-  ],
-  "model": "oxlo-vision-v1",
-  "language": "es"
-}`}</code></pre>
-      </div>
-    </div>
-  )
+async function generateSummaryWithOxlo(text: string): Promise<string> {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8080'
+  const clippedText = text.slice(0, 14000)
+
+  const response = await fetch(`${backendUrl}/v1/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'deepseek-v3.2',
+      max_tokens: 700,
+      messages: [
+        {
+          role: 'system',
+          content: 'Eres un asistente que resume documentos tecnicos en espanol. Responde con claridad y precision.',
+        },
+        {
+          role: 'user',
+          content: `Resume este texto en espanol y agrega 5 puntos clave al final:\n\n${clippedText}`,
+        },
+      ],
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`No se pudo generar resumen. HTTP ${response.status}`)
+  }
+
+  const data = await response.json()
+  const content = data?.choices?.[0]?.message?.content
+  if (!content || typeof content !== 'string') {
+    throw new Error('La respuesta del modelo no contiene texto util.')
+  }
+  return content.trim()
 }
 
-// ── Main Dashboard ─────────────────────────────────────────────
 export default function Dashboard() {
   const [appState, setAppState] = useState<AppState>('idle')
   const [isDragging, setIsDragging] = useState(false)
   const [activeTab, setActiveTab] = useState<ResultTab>('summary')
   const [processStep, setProcessStep] = useState(0)
   const [processProgress, setProcessProgress] = useState(0)
+  const [displayLabel, setDisplayLabel] = useState('')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [fileName, setFileName] = useState('')
+  const [fileSize, setFileSize] = useState(0)
+  const [pages, setPages] = useState(0)
+  const [ocrPages, setOcrPages] = useState(0)
+  const [extractedText, setExtractedText] = useState('')
+  const [summary, setSummary] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // simulate processing
-  const startProcessing = useCallback(() => {
+  const keyPoints = useMemo(() => simpleKeyPoints(summary || extractedText), [summary, extractedText])
+  const markdown = useMemo(() => buildMarkdown(fileName, summary, keyPoints), [fileName, summary, keyPoints])
+
+  const processFile = useCallback(async (file: File) => {
+    setErrorMessage(null)
     setAppState('processing')
     setProcessStep(0)
     setProcessProgress(0)
+    setDisplayLabel(PROCESSING_STEPS[0])
+    setFileName(file.name)
+    setFileSize(file.size)
 
-    let totalTime = 0
-    PROCESSING_STEPS.forEach((step, i) => {
-      setTimeout(() => {
-        setProcessStep(i)
-        setProcessProgress(Math.round(((i + 1) / PROCESSING_STEPS.length) * 100))
-      }, totalTime)
-      totalTime += step.dur
-    })
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setErrorMessage('El archivo debe ser PDF.')
+      setAppState('idle')
+      return
+    }
 
-    setTimeout(() => {
+    try {
+      const extracted = await extractPdfText(file, (step, progress, label) => {
+        setProcessStep(step)
+        setProcessProgress(progress)
+        setDisplayLabel(label)
+      })
+
+      setPages(extracted.pages)
+      setOcrPages(extracted.ocrPages)
+      setExtractedText(extracted.text)
+
+      if (!extracted.text || extracted.text.length < 40) {
+        setSummary('No se pudo extraer suficiente texto del PDF. Prueba con un archivo de mejor calidad o mayor resolucion.')
+        setProcessStep(4)
+        setProcessProgress(100)
+        setDisplayLabel(PROCESSING_STEPS[4])
+        setAppState('done')
+        return
+      }
+
+      setProcessStep(3)
+      setProcessProgress(85)
+      setDisplayLabel(PROCESSING_STEPS[3])
+
+      try {
+        const aiSummary = await generateSummaryWithOxlo(extracted.text)
+        setSummary(aiSummary)
+      } catch {
+        const fallback = extracted.text.slice(0, 1400)
+        setSummary(`Resumen local de respaldo:\n\n${fallback}${extracted.text.length > 1400 ? '...' : ''}`)
+      }
+
+      setProcessStep(4)
+      setProcessProgress(100)
+      setDisplayLabel(PROCESSING_STEPS[4])
       setAppState('done')
-    }, totalTime + 200)
+      setActiveTab('summary')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error inesperado procesando el PDF.'
+      setErrorMessage(message)
+      setAppState('idle')
+    }
   }, [])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
-    startProcessing()
-  }, [startProcessing])
+    const file = e.dataTransfer.files?.[0]
+    if (file) {
+      void processFile(file)
+    }
+  }, [processFile])
 
-  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true) }
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
   const handleDragLeave = () => setIsDragging(false)
   const handleFileClick = () => fileInputRef.current?.click()
-  const handleFileChange = () => startProcessing()
-  const handleReset = () => { setAppState('idle'); setProcessStep(0); setProcessProgress(0) }
 
-  // typing cursor for processing label
-  const [displayLabel, setDisplayLabel] = useState('')
-  useEffect(() => {
-    if (appState !== 'processing') return
-    const label = PROCESSING_STEPS[processStep]?.label ?? ''
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      void processFile(file)
+    }
+  }
+
+  const handleReset = () => {
+    setAppState('idle')
+    setProcessStep(0)
+    setProcessProgress(0)
     setDisplayLabel('')
-    let i = 0
-    const iv = setInterval(() => {
-      setDisplayLabel(label.slice(0, i + 1))
-      i++
-      if (i >= label.length) clearInterval(iv)
-    }, 30)
-    return () => clearInterval(iv)
-  }, [processStep, appState])
+    setErrorMessage(null)
+    setFileName('')
+    setFileSize(0)
+    setPages(0)
+    setOcrPages(0)
+    setExtractedText('')
+    setSummary('')
+    setActiveTab('summary')
+  }
+
+  const copyToClipboard = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value)
+    } catch {
+      setErrorMessage('No se pudo copiar al portapapeles.')
+    }
+  }
 
   return (
     <div className="db-root">
@@ -388,11 +314,10 @@ export default function Dashboard() {
         {/* Topbar */}
         <header className="db-topbar">
           <div className="db-topbar-title">
-            {appState === 'idle' && 'Nuevo análisis'}
-            {appState === 'dragging' && 'Suelta para analizar'}
-            {appState === 'processing' && 'Procesando documento…'}
+            {appState === 'idle' && 'Nuevo analisis'}
+            {appState === 'processing' && 'Procesando documento...'}
             {appState === 'done' && (
-              <span>{MOCK_FILE.name} <span className="db-done-badge">✓ Completado</span></span>
+              <span>{fileName} <span className="db-done-badge">✓ Completado</span></span>
             )}
           </div>
           <div className="db-topbar-actions">
@@ -407,7 +332,7 @@ export default function Dashboard() {
         <div className="db-content">
 
           {/* ── IDLE / DRAGGING state ── */}
-          {(appState === 'idle' || appState === 'dragging') && (
+          {appState === 'idle' && (
             <div className="db-upload-area">
               <div
                 className={`dropzone ${isDragging ? 'dropzone--over' : ''}`}
@@ -427,17 +352,17 @@ export default function Dashboard() {
                   {isDragging ? '📂' : '📄'}
                 </div>
                 <h2 className="dropzone__title">
-                  {isDragging ? 'Suelta tu PDF aquí' : 'Arrastra tu PDF aquí'}
+                  {isDragging ? 'Suelta tu PDF aqui' : 'Arrastra tu PDF aqui'}
                 </h2>
                 <p className="dropzone__sub">
-                  {isDragging ? '¡Listo para analizar!' : 'o haz clic para seleccionar un archivo'}
+                  {isDragging ? 'Listo para analizar' : 'o haz clic para seleccionar un archivo'}
                 </p>
                 {!isDragging && (
                   <button className="dropzone__btn">
                     Seleccionar PDF
                   </button>
                 )}
-                <p className="dropzone__hint">PDF hasta 50 MB · Máx. 500 páginas</p>
+                <p className="dropzone__hint">PDF hasta 50 MB · Max. 500 paginas</p>
               </div>
 
               {/* Format options */}
@@ -445,12 +370,12 @@ export default function Dashboard() {
                 <div className="format-title">¿Qué quieres generar?</div>
                 <div className="format-grid">
                   {[
-                    { icon: '📋', label: 'Resumen', checked: true },
-                    { icon: '🧠', label: 'Mapa Mental', checked: true },
-                    { icon: '🗺️', label: 'Mapa Conceptual', checked: false },
-                    { icon: '🎯', label: 'Puntos Clave', checked: true },
-                    { icon: '📝', label: 'Archivo .md', checked: true },
-                    { icon: '⚡', label: 'Skill IA', checked: false },
+                    { icon: '📄', label: 'Extraccion texto PDF', checked: true },
+                    { icon: '🔍', label: 'OCR para escaneados', checked: true },
+                    { icon: '📋', label: 'Resumen IA', checked: true },
+                    { icon: '🎯', label: 'Puntos clave', checked: true },
+                    { icon: '📝', label: 'Salida Markdown', checked: true },
+                    { icon: '🗺️', label: 'Mapa mental (proximo)', checked: false },
                   ].map(opt => (
                     <label className={`format-chip ${opt.checked ? 'format-chip--on' : ''}`} key={opt.label}>
                       <span>{opt.icon}</span>
@@ -462,6 +387,15 @@ export default function Dashboard() {
                   ))}
                 </div>
               </div>
+
+              {errorMessage && (
+                <div className="result-panel">
+                  <div className="rp-header">
+                    <h3>Error</h3>
+                  </div>
+                  <p className="rp-body">{errorMessage}</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -472,8 +406,8 @@ export default function Dashboard() {
                 <div className="proc-file">
                   <div className="proc-file-icon">📄</div>
                   <div>
-                    <div className="proc-filename">{MOCK_FILE.name}</div>
-                    <div className="proc-meta">{MOCK_FILE.size} · {MOCK_FILE.pages} páginas</div>
+                    <div className="proc-filename">{fileName || 'documento.pdf'}</div>
+                    <div className="proc-meta">{formatBytes(fileSize)}</div>
                   </div>
                 </div>
 
@@ -493,16 +427,16 @@ export default function Dashboard() {
                 </div>
 
                 <div className="proc-steps">
-                  {PROCESSING_STEPS.map((s, i) => (
+                  {PROCESSING_STEPS.map((label, i) => (
                     <div
-                      key={s.label}
+                      key={label}
                       className={`proc-step ${
                         i < processStep ? 'proc-step--done' :
                         i === processStep ? 'proc-step--active' : ''
                       }`}
                     >
                       <span className="proc-step-dot" />
-                      <span>{s.label}</span>
+                      <span>{label}</span>
                     </div>
                   ))}
                 </div>
@@ -518,8 +452,8 @@ export default function Dashboard() {
                 <div className="results-file">
                   <span className="results-file-icon">📄</span>
                   <div>
-                    <div className="results-filename">{MOCK_FILE.name}</div>
-                    <div className="results-meta">{MOCK_FILE.size} · {MOCK_FILE.pages} páginas · procesado en 4.2s</div>
+                    <div className="results-filename">{fileName}</div>
+                    <div className="results-meta">{formatBytes(fileSize)} · {pages} paginas · OCR en {ocrPages} paginas</div>
                   </div>
                 </div>
                 <button className="db-btn-ghost" onClick={handleReset}>+ Nuevo PDF</button>
@@ -541,11 +475,84 @@ export default function Dashboard() {
 
               {/* Tab content */}
               <div className="results-body">
-                {activeTab === 'summary'   && <SummaryPanel />}
-                {activeTab === 'mindmap'   && <MindMapPanel />}
-                {activeTab === 'keypoints' && <KeyPointsPanel />}
-                {activeTab === 'markdown'  && <MarkdownPanel />}
-                {activeTab === 'skill'     && <SkillPanel />}
+                {activeTab === 'summary' && (
+                  <div className="result-panel">
+                    <div className="rp-header">
+                      <h3>Resumen ejecutivo</h3>
+                      <button className="rp-copy" onClick={() => void copyToClipboard(summary)}>Copiar</button>
+                    </div>
+                    <p className="rp-meta">Generado desde texto extraido de PDF y OCR</p>
+                    <div className="rp-body">
+                      {summary.split('\n').filter(Boolean).map((line, index) => (
+                        <p key={index}>{line}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'keypoints' && (
+                  <div className="result-panel">
+                    <div className="rp-header">
+                      <h3>Puntos clave</h3>
+                      <button className="rp-copy" onClick={() => void copyToClipboard(keyPoints.join('\n'))}>Copiar</button>
+                    </div>
+                    <div className="keypoints-grid">
+                      <div className="kp-category">
+                        <div className="kp-cat-header">
+                          <span>🎯</span>
+                          <span>Hallazgos</span>
+                        </div>
+                        <ul>
+                          {keyPoints.length === 0 && <li>No hay suficientes frases para generar puntos clave.</li>}
+                          {keyPoints.map((item, index) => (
+                            <li key={index}>
+                              <span className="kp-bullet" />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'markdown' && (
+                  <div className="result-panel markdownp">
+                    <div className="rp-header">
+                      <h3>Archivo .md</h3>
+                      <button className="rp-copy" onClick={() => void copyToClipboard(markdown)}>Copiar</button>
+                    </div>
+                    <p className="rp-meta">Salida markdown para usar con asistentes de IA</p>
+                    <div className="md-preview">
+                      <div className="md-header">
+                        <span className="code-dot" style={{ background: '#ff5f56' }} />
+                        <span className="code-dot" style={{ background: '#ffbd2e' }} />
+                        <span className="code-dot" style={{ background: '#27c93f' }} />
+                        <span className="md-filename">output.md</span>
+                      </div>
+                      <pre className="md-body"><code>{markdown}</code></pre>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'raw' && (
+                  <div className="result-panel markdownp">
+                    <div className="rp-header">
+                      <h3>Texto extraido</h3>
+                      <button className="rp-copy" onClick={() => void copyToClipboard(extractedText)}>Copiar</button>
+                    </div>
+                    <p className="rp-meta">Fuente completa para depuracion y QA de extraccion</p>
+                    <div className="md-preview">
+                      <div className="md-header">
+                        <span className="code-dot" style={{ background: '#ff5f56' }} />
+                        <span className="code-dot" style={{ background: '#ffbd2e' }} />
+                        <span className="code-dot" style={{ background: '#27c93f' }} />
+                        <span className="md-filename">raw-text.txt</span>
+                      </div>
+                      <pre className="md-body"><code>{extractedText || 'Sin texto extraido.'}</code></pre>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
