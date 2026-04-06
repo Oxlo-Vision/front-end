@@ -1,4 +1,14 @@
 import { Link } from 'react-router-dom'
+import {
+  FiBookOpen,
+  FiFileText,
+  FiGitBranch,
+  FiLink2,
+  FiList,
+  FiTarget,
+  FiTool,
+  FiZap,
+} from 'react-icons/fi'
 import './index.css'
 
 // ── SVG Icons inlined ──────────────────────────────────────────
@@ -12,32 +22,32 @@ const LogoIcon = () => (
 // ── Data ───────────────────────────────────────────────────────
 const features = [
   {
-    icon: '📄',
+    icon: <FiFileText />,
     title: 'Resumen Inteligente',
     desc: 'Extrae lo esencial de cualquier PDF en segundos. La IA comprende el contexto y genera resúmenes precisos y coherentes.',
   },
   {
-    icon: '🗺️',
+    icon: <FiGitBranch />,
     title: 'Mapas Conceptuales',
     desc: 'Visualiza las relaciones entre ideas. Genera diagramas conectados automáticamente desde el contenido del documento.',
   },
   {
-    icon: '🧠',
+    icon: <FiBookOpen />,
     title: 'Mapas Mentales',
     desc: 'Transforma textos complejos en estructuras jerárquicas visuales, perfectas para el estudio y la retención.',
   },
   {
-    icon: '🎯',
+    icon: <FiTarget />,
     title: 'Puntos Clave',
     desc: 'Identifica y extrae los argumentos principales, datos críticos y conclusiones del documento de forma automática.',
   },
   {
-    icon: '📝',
+    icon: <FiList />,
     title: 'Archivos .MD para IA',
     desc: 'Exporta en formato Markdown optimizado para GitHub Copilot y otros asistentes. Contexto listo para usar.',
   },
   {
-    icon: '⚡',
+    icon: <FiZap />,
     title: 'Skills & Integraciones',
     desc: 'Genera skills personalizadas para integrar el conocimiento del PDF en tus flujos de trabajo de IA favoritos.',
   },
@@ -51,12 +61,12 @@ const steps = [
 ]
 
 const outputs = [
-  { icon: '📋', title: 'Resumen ejecutivo', desc: 'Texto conciso con las ideas más importantes del documento.' },
-  { icon: '🔗', title: 'Mapa conceptual', desc: 'Diagrama JSON/SVG listo para visualizar en cualquier herramienta.' },
-  { icon: '🌳', title: 'Mapa mental', desc: 'Estructura jerárquica exportable en formato compatible con MindNode y Miro.' },
-  { icon: '📌', title: 'Puntos principales', desc: 'Lista curada de los argumentos y datos esenciales.' },
-  { icon: '📝', title: 'Archivo .md', desc: 'Markdown optimizado como contexto para GitHub Copilot y otros LLMs.' },
-  { icon: '🔧', title: 'Skill personalizada', desc: 'Integración lista para asistentes de IA como Copilot Chat.' },
+  { icon: <FiFileText />, title: 'Resumen ejecutivo', desc: 'Texto conciso con las ideas más importantes del documento.' },
+  { icon: <FiLink2 />, title: 'Mapa conceptual', desc: 'Diagrama JSON/SVG listo para visualizar en cualquier herramienta.' },
+  { icon: <FiGitBranch />, title: 'Mapa mental', desc: 'Estructura jerárquica exportable en formato compatible con MindNode y Miro.' },
+  { icon: <FiTarget />, title: 'Puntos principales', desc: 'Lista curada de los argumentos y datos esenciales.' },
+  { icon: <FiList />, title: 'Archivo .md', desc: 'Markdown optimizado como contexto para GitHub Copilot y otros LLMs.' },
+  { icon: <FiTool />, title: 'Skill personalizada', desc: 'Integración lista para asistentes de IA como Copilot Chat.' },
 ]
 
 // ── Component ──────────────────────────────────────────────────
@@ -125,7 +135,7 @@ export default function App() {
 
             <div className="hero__card">
               <div className="card__header">
-                <div className="card__icon">📄</div>
+                <div className="card__icon"><FiFileText /></div>
                 <div>
                   <div className="card__filename">research_paper_2024.pdf</div>
                   <div className="card__size">2.4 MB · 87 páginas</div>
