@@ -22,7 +22,7 @@ function getChatCompletionsUrl(): string {
   const base = getBackendUrl()
 
   if (!base || base === '/api') {
-    return '/v1/chat/completions'
+    return '/api/v1/chat/completions'
   }
 
   return `${base}/v1/chat/completions`

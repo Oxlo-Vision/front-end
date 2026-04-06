@@ -10,11 +10,12 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       proxy: {
-        '/api': {
+        '/api/v1': {
           target: backendTarget,
           changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api/, ''),
         },
-        '/v1': {
+        '/api': {
           target: backendTarget,
           changeOrigin: true,
         },
