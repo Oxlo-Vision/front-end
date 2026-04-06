@@ -141,6 +141,58 @@
   font-weight: 600;
 }
 .db-topbar-actions { display: flex; align-items: center; gap: 12px; }
+
+.ai-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.ai-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ai-status--oxlo {
+  color: #8cffcf;
+  background: rgba(31, 255, 180, 0.12);
+  border-color: rgba(31, 255, 180, 0.35);
+}
+
+.ai-status--oxlo .ai-status-dot {
+  background: #1fffb4;
+  box-shadow: 0 0 10px rgba(31, 255, 180, 0.6);
+}
+
+.ai-status--fallback {
+  color: #ffd8a6;
+  background: rgba(255, 184, 107, 0.12);
+  border-color: rgba(255, 184, 107, 0.32);
+}
+
+.ai-status--fallback .ai-status-dot {
+  background: #ffb86b;
+  box-shadow: 0 0 10px rgba(255, 184, 107, 0.5);
+}
+
+.ai-status--unknown {
+  color: #b7bec8;
+  background: rgba(156, 163, 175, 0.1);
+  border-color: rgba(156, 163, 175, 0.24);
+}
+
+.ai-status--unknown .ai-status-dot {
+  background: #9ca3af;
+}
 .db-avatar {
   width: 34px; height: 34px;
   border-radius: 50%;
@@ -474,9 +526,45 @@
   border-radius: 12px;
   overflow: hidden;
   margin-top: 16px;
-  min-height: 340px;
+}
+.mindmap-canvas .react-flow {
+  border-radius: 12px;
 }
 .mindmap-svg { width: 100%; height: 380px; }
+
+.mindmap-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--soft-gray);
+  font-size: 0.9rem;
+  font-style: italic;
+  text-align: center;
+  padding: 24px;
+}
+
+.mindmap-canvas .react-flow__controls {
+  background: rgba(17,20,24,0.95);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.mindmap-canvas .react-flow__controls-button {
+  background: rgba(17,20,24,0.95);
+  color: var(--soft-gray);
+  border-color: var(--border);
+  border-bottom-color: var(--border);
+}
+
+.mindmap-canvas .react-flow__controls-button:hover {
+  color: var(--cyan);
+  background: rgba(31,255,180,0.08);
+}
+
+.mindmap-canvas .react-flow__background {
+  background: rgba(5,7,10,0.5);
+}
 
 /* ── Key Points ────────────────────────────────────────────────── */
 .keypoints-grid {

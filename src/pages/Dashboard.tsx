@@ -1,144 +1,42 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist'
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-import { recognize } from 'tesseract.js'
 import '../dashboard.css'
+import { extractPdfText, type ExtractedPdf } from '../features/pdf/extractPdfText'
+import { generateConceptMapWithOxlo, generateMindMapWithOxlo, generateSummaryWithOxlo } from '../features/oxlo/chat'
+import { MindMapPanel } from '../features/mindmap/components/MindMapPanel'
+import { buildMarkdown, fallbackMindMap, mindMapToFlow, simpleKeyPoints } from '../features/mindmap/utils'
+import type { MindMapData } from '../features/mindmap/types'
+import { ConceptMapPanel } from '../features/conceptmap/components/ConceptMapPanel'
+import { conceptMapToFlow, fallbackConceptMap } from '../features/conceptmap/utils'
+import type { ConceptMapData } from '../features/conceptmap/types'
 
 type AppState = 'idle' | 'processing' | 'done'
-type ResultTab = 'summary' | 'keypoints' | 'markdown' | 'raw'
-
-type ExtractedPdf = {
-  pages: number
-  ocrPages: number
-  text: string
-}
+type AiMode = 'unknown' | 'oxlo' | 'fallback'
+type ResultTab = 'summary' | 'mindmap' | 'conceptmap' | 'keypoints' | 'markdown' | 'raw'
 
 const PROCESSING_STEPS = [
   'Validando archivo PDF',
   'Leyendo paginas con PDF.js',
   'Aplicando OCR a paginas escaneadas',
   'Generando resumen con Oxlo',
+  'Generando mapa mental',
+  'Generando mapa conceptual',
   'Finalizando',
 ]
 
 const RESULT_TABS: { id: ResultTab; label: string; icon: string }[] = [
   { id: 'summary', label: 'Resumen', icon: '📋' },
+  { id: 'mindmap', label: 'Mapa Mental', icon: '🧠' },
+  { id: 'conceptmap', label: 'Mapa Conceptual', icon: '🗺️' },
   { id: 'keypoints', label: 'Puntos Clave', icon: '🎯' },
   { id: 'markdown', label: 'Archivo .md', icon: '📝' },
   { id: 'raw', label: 'Texto extraido', icon: '📄' },
 ]
 
-GlobalWorkerOptions.workerSrc = pdfWorkerUrl
-
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function simpleKeyPoints(text: string): string[] {
-  return text
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 55)
-    .slice(0, 6)
-}
-
-function buildMarkdown(fileName: string, summary: string, points: string[]): string {
-  const pointsMd = points.map((p) => `- ${p}`).join('\n')
-  return `# Resumen - ${fileName}\n\n## Puntos clave\n${pointsMd || '- Sin puntos clave suficientes.'}\n\n## Resumen ejecutivo\n${summary}`
-}
-
-async function extractPdfText(file: File, onProgress: (stepIndex: number, progress: number, label: string) => void): Promise<ExtractedPdf> {
-  onProgress(0, 5, PROCESSING_STEPS[0])
-  const fileBuffer = await file.arrayBuffer()
-
-  onProgress(1, 15, PROCESSING_STEPS[1])
-  const loadingTask = getDocument({ data: fileBuffer })
-  const pdf = await loadingTask.promise
-
-  const pagesText: string[] = []
-  let ocrPages = 0
-
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum += 1) {
-    const page = await pdf.getPage(pageNum)
-    const textContent = await page.getTextContent()
-    const pageText = (textContent.items as Array<{ str?: string }>)
-      .map((item) => item.str ?? '')
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-
-    const baseProgress = 15 + Math.round((pageNum / pdf.numPages) * 50)
-
-    if (pageText.length > 25) {
-      pagesText.push(pageText)
-      onProgress(1, baseProgress, `${PROCESSING_STEPS[1]} (pagina ${pageNum}/${pdf.numPages})`)
-      continue
-    }
-
-    ocrPages += 1
-    onProgress(2, baseProgress, `${PROCESSING_STEPS[2]} (pagina ${pageNum}/${pdf.numPages})`)
-
-    const viewport = page.getViewport({ scale: 2 })
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.ceil(viewport.width)
-    canvas.height = Math.ceil(viewport.height)
-    const context = canvas.getContext('2d')
-    if (!context) {
-      pagesText.push('')
-      continue
-    }
-
-    await page.render({ canvas, canvasContext: context, viewport }).promise
-    const ocrResult = await recognize(canvas, 'eng')
-    pagesText.push(ocrResult.data.text.replace(/\s+/g, ' ').trim())
-  }
-
-  const text = pagesText.join('\n\n').trim()
-  return {
-    pages: pdf.numPages,
-    ocrPages,
-    text,
-  }
-}
-
-async function generateSummaryWithOxlo(text: string): Promise<string> {
-  const backendUrl = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8080'
-  const clippedText = text.slice(0, 14000)
-
-  const response = await fetch(`${backendUrl}/v1/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'deepseek-v3.2',
-      max_tokens: 700,
-      messages: [
-        {
-          role: 'system',
-          content: 'Eres un asistente que resume documentos tecnicos en espanol. Responde con claridad y precision.',
-        },
-        {
-          role: 'user',
-          content: `Resume este texto en espanol y agrega 5 puntos clave al final:\n\n${clippedText}`,
-        },
-      ],
-    }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`No se pudo generar resumen. HTTP ${response.status}`)
-  }
-
-  const data = await response.json()
-  const content = data?.choices?.[0]?.message?.content
-  if (!content || typeof content !== 'string') {
-    throw new Error('La respuesta del modelo no contiene texto util.')
-  }
-  return content.trim()
 }
 
 export default function Dashboard() {
@@ -149,19 +47,59 @@ export default function Dashboard() {
   const [processProgress, setProcessProgress] = useState(0)
   const [displayLabel, setDisplayLabel] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  const [aiMode, setAiMode] = useState<AiMode>('unknown')
+  const [aiModeDetail, setAiModeDetail] = useState('Esperando procesamiento')
+
   const [fileName, setFileName] = useState('')
   const [fileSize, setFileSize] = useState(0)
   const [pages, setPages] = useState(0)
   const [ocrPages, setOcrPages] = useState(0)
   const [extractedText, setExtractedText] = useState('')
   const [summary, setSummary] = useState('')
+  const [mindMap, setMindMap] = useState<MindMapData | null>(null)
+  const [conceptMap, setConceptMap] = useState<ConceptMapData | null>(null)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const keyPoints = useMemo(() => simpleKeyPoints(summary || extractedText), [summary, extractedText])
   const markdown = useMemo(() => buildMarkdown(fileName, summary, keyPoints), [fileName, summary, keyPoints])
 
+  const mindMapFlow = useMemo(() => {
+    if (!mindMap) return { nodes: [], edges: [] }
+    return mindMapToFlow(mindMap)
+  }, [mindMap])
+
+  const conceptMapFlow = useMemo(() => {
+    if (!conceptMap) return { nodes: [], edges: [] }
+    return conceptMapToFlow(conceptMap)
+  }, [conceptMap])
+
+  const applyExtractionState = (extracted: ExtractedPdf): void => {
+    setPages(extracted.pages)
+    setOcrPages(extracted.ocrPages)
+    setExtractedText(extracted.text)
+  }
+
+  const runFallbackMode = (file: File, extracted: ExtractedPdf, reason: string): void => {
+    const fallbackText = extracted.text.slice(0, 1400)
+    const fallbackSummary = `Resumen local de respaldo:\n\n${fallbackText}${extracted.text.length > 1400 ? '...' : ''}`
+
+    const points = simpleKeyPoints(extracted.text)
+    const localMindMap = fallbackMindMap(file.name, fallbackSummary, points)
+    const localConceptMap = fallbackConceptMap(file.name, fallbackSummary, points)
+
+    setSummary(fallbackSummary)
+    setMindMap(localMindMap)
+    setConceptMap(localConceptMap)
+    setAiMode('fallback')
+    setAiModeDetail(`Fallback local activo: ${reason}`)
+  }
+
   const processFile = useCallback(async (file: File) => {
     setErrorMessage(null)
+    setAiMode('unknown')
+    setAiModeDetail('Conectando con Oxlo...')
     setAppState('processing')
     setProcessStep(0)
     setProcessProgress(0)
@@ -180,64 +118,91 @@ export default function Dashboard() {
         setProcessStep(step)
         setProcessProgress(progress)
         setDisplayLabel(label)
-      })
+      }, PROCESSING_STEPS)
 
-      setPages(extracted.pages)
-      setOcrPages(extracted.ocrPages)
-      setExtractedText(extracted.text)
+      applyExtractionState(extracted)
 
       if (!extracted.text || extracted.text.length < 40) {
-        setSummary('No se pudo extraer suficiente texto del PDF. Prueba con un archivo de mejor calidad o mayor resolucion.')
-        setProcessStep(4)
+        runFallbackMode(file, extracted, 'No se extrajo texto suficiente para usar el backend')
+        setProcessStep(6)
         setProcessProgress(100)
-        setDisplayLabel(PROCESSING_STEPS[4])
+        setDisplayLabel(PROCESSING_STEPS[6])
         setAppState('done')
+        setActiveTab('summary')
         return
       }
 
       setProcessStep(3)
-      setProcessProgress(85)
+      setProcessProgress(82)
       setDisplayLabel(PROCESSING_STEPS[3])
 
       try {
         const aiSummary = await generateSummaryWithOxlo(extracted.text)
         setSummary(aiSummary)
-      } catch {
-        const fallback = extracted.text.slice(0, 1400)
-        setSummary(`Resumen local de respaldo:\n\n${fallback}${extracted.text.length > 1400 ? '...' : ''}`)
+        setAiMode('oxlo')
+        setAiModeDetail('Resumen y estructuras generadas con Oxlo API')
+
+        setProcessStep(4)
+        setProcessProgress(90)
+        setDisplayLabel(PROCESSING_STEPS[4])
+
+        try {
+          const aiMindMap = await generateMindMapWithOxlo(file.name, extracted.text, aiSummary)
+          setMindMap(aiMindMap)
+        } catch {
+          setMindMap(fallbackMindMap(file.name, aiSummary, simpleKeyPoints(aiSummary)))
+          setAiModeDetail('Resumen con Oxlo + mapa mental local de respaldo')
+        }
+
+        setProcessStep(5)
+        setProcessProgress(96)
+        setDisplayLabel(PROCESSING_STEPS[5])
+
+        try {
+          const aiConceptMap = await generateConceptMapWithOxlo(file.name, extracted.text, aiSummary)
+          setConceptMap(aiConceptMap)
+        } catch {
+          setConceptMap(fallbackConceptMap(file.name, aiSummary, simpleKeyPoints(aiSummary)))
+          setAiModeDetail('Resumen con Oxlo + mapa conceptual local de respaldo')
+        }
+      } catch (summaryError) {
+        const reason = summaryError instanceof Error ? summaryError.message : 'No se pudo conectar al backend'
+        runFallbackMode(file, extracted, reason)
       }
 
-      setProcessStep(4)
+      setProcessStep(6)
       setProcessProgress(100)
-      setDisplayLabel(PROCESSING_STEPS[4])
+      setDisplayLabel(PROCESSING_STEPS[6])
       setAppState('done')
       setActiveTab('summary')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error inesperado procesando el PDF.'
       setErrorMessage(message)
       setAppState('idle')
+      setAiMode('fallback')
+      setAiModeDetail(`Error en procesamiento local: ${message}`)
     }
   }, [])
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
+  const handleDrop = useCallback((event: React.DragEvent) => {
+    event.preventDefault()
     setIsDragging(false)
-    const file = e.dataTransfer.files?.[0]
+    const file = event.dataTransfer.files?.[0]
     if (file) {
       void processFile(file)
     }
   }, [processFile])
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
+  const handleDragOver = (event: React.DragEvent) => {
+    event.preventDefault()
     setIsDragging(true)
   }
 
   const handleDragLeave = () => setIsDragging(false)
   const handleFileClick = () => fileInputRef.current?.click()
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
     if (file) {
       void processFile(file)
     }
@@ -249,12 +214,16 @@ export default function Dashboard() {
     setProcessProgress(0)
     setDisplayLabel('')
     setErrorMessage(null)
+    setAiMode('unknown')
+    setAiModeDetail('Esperando procesamiento')
     setFileName('')
     setFileSize(0)
     setPages(0)
     setOcrPages(0)
     setExtractedText('')
     setSummary('')
+    setMindMap(null)
+    setConceptMap(null)
     setActiveTab('summary')
   }
 
@@ -268,13 +237,17 @@ export default function Dashboard() {
 
   return (
     <div className="db-root">
-      {/* ── Sidebar ── */}
       <aside className="db-sidebar">
         <div className="db-logo">
           <div className="db-logo-icon">
             <svg viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-                stroke="#05070A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path
+                d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                stroke="#05070A"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </div>
           <span>Oxlo<b>Vision</b></span>
@@ -282,22 +255,9 @@ export default function Dashboard() {
 
         <nav className="db-nav">
           <div className="db-nav-label">Workspace</div>
-          <a className="db-nav-item db-nav-item--active" href="#">
-            <span>📄</span> Documentos
-          </a>
-          <a className="db-nav-item" href="#">
-            <span>📊</span> Resultados
-          </a>
-          <a className="db-nav-item" href="#">
-            <span>🕒</span> Historial
-          </a>
-          <div className="db-nav-label" style={{ marginTop: 24 }}>Configuración</div>
-          <a className="db-nav-item" href="#">
-            <span>⚙️</span> Ajustes
-          </a>
-          <a className="db-nav-item" href="#">
-            <span>🔑</span> API Keys
-          </a>
+          <a className="db-nav-item db-nav-item--active" href="#"><span>📄</span> Documentos</a>
+          <a className="db-nav-item" href="#"><span>📊</span> Resultados</a>
+          <a className="db-nav-item" href="#"><span>🕒</span> Historial</a>
         </nav>
 
         <div className="db-sidebar-footer">
@@ -309,18 +269,24 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      {/* ── Main ── */}
       <main className="db-main">
-        {/* Topbar */}
         <header className="db-topbar">
           <div className="db-topbar-title">
             {appState === 'idle' && 'Nuevo analisis'}
             {appState === 'processing' && 'Procesando documento...'}
             {appState === 'done' && (
-              <span>{fileName} <span className="db-done-badge">✓ Completado</span></span>
+              <span>
+                {fileName} <span className="db-done-badge">✓ Completado</span>
+              </span>
             )}
           </div>
           <div className="db-topbar-actions">
+            <div className={`ai-status ai-status--${aiMode}`} title={aiModeDetail}>
+              <span className="ai-status-dot" />
+              {aiMode === 'oxlo' && 'Modo Oxlo API'}
+              {aiMode === 'fallback' && 'Modo Local Fallback'}
+              {aiMode === 'unknown' && 'Estado IA: pendiente'}
+            </div>
             {appState === 'done' && (
               <button className="db-btn-ghost" onClick={handleReset}>+ Nuevo PDF</button>
             )}
@@ -328,10 +294,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Content */}
         <div className="db-content">
-
-          {/* ── IDLE / DRAGGING state ── */}
           {appState === 'idle' && (
             <div className="db-upload-area">
               <div
@@ -341,48 +304,30 @@ export default function Dashboard() {
                 onDragLeave={handleDragLeave}
                 onClick={handleFileClick}
               >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf"
-                  style={{ display: 'none' }}
-                  onChange={handleFileChange}
-                />
-                <div className="dropzone__icon">
-                  {isDragging ? '📂' : '📄'}
-                </div>
-                <h2 className="dropzone__title">
-                  {isDragging ? 'Suelta tu PDF aqui' : 'Arrastra tu PDF aqui'}
-                </h2>
-                <p className="dropzone__sub">
-                  {isDragging ? 'Listo para analizar' : 'o haz clic para seleccionar un archivo'}
-                </p>
-                {!isDragging && (
-                  <button className="dropzone__btn">
-                    Seleccionar PDF
-                  </button>
-                )}
+                <input ref={fileInputRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleFileChange} />
+                <div className="dropzone__icon">{isDragging ? '📂' : '📄'}</div>
+                <h2 className="dropzone__title">{isDragging ? 'Suelta tu PDF aqui' : 'Arrastra tu PDF aqui'}</h2>
+                <p className="dropzone__sub">{isDragging ? 'Listo para analizar' : 'o haz clic para seleccionar un archivo'}</p>
+                {!isDragging && <button className="dropzone__btn">Seleccionar PDF</button>}
                 <p className="dropzone__hint">PDF hasta 50 MB · Max. 500 paginas</p>
               </div>
 
-              {/* Format options */}
               <div className="format-options">
-                <div className="format-title">¿Qué quieres generar?</div>
+                <div className="format-title">¿Que quieres generar?</div>
                 <div className="format-grid">
                   {[
                     { icon: '📄', label: 'Extraccion texto PDF', checked: true },
                     { icon: '🔍', label: 'OCR para escaneados', checked: true },
                     { icon: '📋', label: 'Resumen IA', checked: true },
+                    { icon: '🧠', label: 'Mapa mental React Flow', checked: true },
+                    { icon: '🗺️', label: 'Mapa conceptual IA', checked: true },
                     { icon: '🎯', label: 'Puntos clave', checked: true },
                     { icon: '📝', label: 'Salida Markdown', checked: true },
-                    { icon: '🗺️', label: 'Mapa mental (proximo)', checked: false },
-                  ].map(opt => (
-                    <label className={`format-chip ${opt.checked ? 'format-chip--on' : ''}`} key={opt.label}>
-                      <span>{opt.icon}</span>
-                      <span>{opt.label}</span>
-                      <span className={`format-check ${opt.checked ? 'format-check--on' : ''}`}>
-                        {opt.checked ? '✓' : ''}
-                      </span>
+                  ].map((option) => (
+                    <label className={`format-chip ${option.checked ? 'format-chip--on' : ''}`} key={option.label}>
+                      <span>{option.icon}</span>
+                      <span>{option.label}</span>
+                      <span className={`format-check ${option.checked ? 'format-check--on' : ''}`}>{option.checked ? '✓' : ''}</span>
                     </label>
                   ))}
                 </div>
@@ -390,16 +335,13 @@ export default function Dashboard() {
 
               {errorMessage && (
                 <div className="result-panel">
-                  <div className="rp-header">
-                    <h3>Error</h3>
-                  </div>
+                  <div className="rp-header"><h3>Error</h3></div>
                   <p className="rp-body">{errorMessage}</p>
                 </div>
               )}
             </div>
           )}
 
-          {/* ── PROCESSING state ── */}
           {appState === 'processing' && (
             <div className="db-processing">
               <div className="proc-card">
@@ -412,28 +354,17 @@ export default function Dashboard() {
                 </div>
 
                 <div className="proc-progress-wrap">
-                  <div className="proc-bar-outer">
-                    <div
-                      className="proc-bar-fill"
-                      style={{ width: `${processProgress}%` }}
-                    />
-                  </div>
+                  <div className="proc-bar-outer"><div className="proc-bar-fill" style={{ width: `${processProgress}%` }} /></div>
                   <div className="proc-pct">{processProgress}%</div>
                 </div>
 
-                <div className="proc-label">
-                  <span className="proc-spinner">⟳</span>
-                  {displayLabel}<span className="proc-cursor">|</span>
-                </div>
+                <div className="proc-label"><span className="proc-spinner">⟳</span>{displayLabel}<span className="proc-cursor">|</span></div>
 
                 <div className="proc-steps">
-                  {PROCESSING_STEPS.map((label, i) => (
+                  {PROCESSING_STEPS.map((label, index) => (
                     <div
                       key={label}
-                      className={`proc-step ${
-                        i < processStep ? 'proc-step--done' :
-                        i === processStep ? 'proc-step--active' : ''
-                      }`}
+                      className={`proc-step ${index < processStep ? 'proc-step--done' : index === processStep ? 'proc-step--active' : ''}`}
                     >
                       <span className="proc-step-dot" />
                       <span>{label}</span>
@@ -444,10 +375,8 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ── DONE / RESULTS state ── */}
           {appState === 'done' && (
             <div className="db-results">
-              {/* File info bar */}
               <div className="results-info-bar">
                 <div className="results-file">
                   <span className="results-file-icon">📄</span>
@@ -459,21 +388,18 @@ export default function Dashboard() {
                 <button className="db-btn-ghost" onClick={handleReset}>+ Nuevo PDF</button>
               </div>
 
-              {/* Tabs */}
               <div className="results-tabs">
-                {RESULT_TABS.map(tab => (
+                {RESULT_TABS.map((tab) => (
                   <button
                     key={tab.id}
                     className={`results-tab ${activeTab === tab.id ? 'results-tab--active' : ''}`}
                     onClick={() => setActiveTab(tab.id)}
                   >
-                    <span>{tab.icon}</span>
-                    {tab.label}
+                    <span>{tab.icon}</span>{tab.label}
                   </button>
                 ))}
               </div>
 
-              {/* Tab content */}
               <div className="results-body">
                 {activeTab === 'summary' && (
                   <div className="result-panel">
@@ -482,12 +408,29 @@ export default function Dashboard() {
                       <button className="rp-copy" onClick={() => void copyToClipboard(summary)}>Copiar</button>
                     </div>
                     <p className="rp-meta">Generado desde texto extraido de PDF y OCR</p>
+                    <p className="rp-meta">{aiModeDetail}</p>
                     <div className="rp-body">
                       {summary.split('\n').filter(Boolean).map((line, index) => (
                         <p key={index}>{line}</p>
                       ))}
                     </div>
                   </div>
+                )}
+
+                {activeTab === 'mindmap' && (
+                  <MindMapPanel
+                    mindMap={mindMap}
+                    flow={mindMapFlow}
+                    onCopyJson={() => void copyToClipboard(JSON.stringify(mindMap, null, 2))}
+                  />
+                )}
+
+                {activeTab === 'conceptmap' && (
+                  <ConceptMapPanel
+                    conceptMap={conceptMap}
+                    flow={conceptMapFlow}
+                    onCopyJson={() => void copyToClipboard(JSON.stringify(conceptMap, null, 2))}
+                  />
                 )}
 
                 {activeTab === 'keypoints' && (
@@ -498,17 +441,11 @@ export default function Dashboard() {
                     </div>
                     <div className="keypoints-grid">
                       <div className="kp-category">
-                        <div className="kp-cat-header">
-                          <span>🎯</span>
-                          <span>Hallazgos</span>
-                        </div>
+                        <div className="kp-cat-header"><span>🎯</span><span>Hallazgos</span></div>
                         <ul>
                           {keyPoints.length === 0 && <li>No hay suficientes frases para generar puntos clave.</li>}
                           {keyPoints.map((item, index) => (
-                            <li key={index}>
-                              <span className="kp-bullet" />
-                              {item}
-                            </li>
+                            <li key={index}><span className="kp-bullet" />{item}</li>
                           ))}
                         </ul>
                       </div>

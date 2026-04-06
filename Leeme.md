@@ -22,13 +22,13 @@ ya esta listo un microservicio en micronaut con java para el proyecto con su res
 - [x] Soporte de OCR para PDFs escaneados (paginas sin texto seleccionable).
 - [x] Generacion de resumen usando endpoint del backend `/v1/chat/completions`.
 - [x] Visualizacion de resultados en tabs: resumen, puntos clave, markdown y texto extraido.
-- [ ] Generacion de mapas mentales basada en contenido real del PDF.
-- [ ] Generacion de mapas conceptuales basada en contenido real del PDF.
+- [x] Generacion de mapas mentales basada en contenido real del PDF (React Flow).
+- [x] Generacion de mapas conceptuales basada en contenido real del PDF.
 - [ ] Generacion y descarga de skills listas para asistentes IA.
 - [ ] Exportacion de diagramas UML/ER desde contenido procesado.
 
 ## Notas de ejecucion
 
-- Front-end espera el backend en `http://localhost:8080` por defecto.
-- Se puede configurar con `VITE_BACKEND_URL`.
+- Front-end usa `VITE_BACKEND_URL=/api` por defecto para desarrollo (proxy Vite -> backend `http://localhost:8080`).
+- Se puede configurar `VITE_BACKEND_URL` con otra ruta/base si se necesita.
 - OCR se aplica automaticamente cuando una pagina del PDF no contiene texto extraible.
