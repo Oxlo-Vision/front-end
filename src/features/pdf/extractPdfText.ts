@@ -1,5 +1,5 @@
 import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist'
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import PdfJsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker'
 import { recognize } from 'tesseract.js'
 
 export type ExtractedPdf = {
@@ -9,10 +9,12 @@ export type ExtractedPdf = {
 }
 
 let workerConfigured = false
+let pdfJsWorker: Worker | null = null
 
 function ensurePdfWorkerConfigured(): void {
   if (!workerConfigured) {
-    GlobalWorkerOptions.workerSrc = pdfWorkerUrl
+    pdfJsWorker = new PdfJsWorker()
+    GlobalWorkerOptions.workerPort = pdfJsWorker
     workerConfigured = true
   }
 }

@@ -124,7 +124,8 @@ export default function Dashboard() {
       if (cancelled) return
       setChatModelOptions(options)
       if (!selectedChatModel && options.length > 0) {
-        setSelectedChatModel(options[0].model)
+        const preferred = options.find((option) => option.model === 'deepseek-v3.2')
+        setSelectedChatModel(preferred?.model ?? options[0].model)
       }
     }
 

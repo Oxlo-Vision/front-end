@@ -5,7 +5,27 @@ import { normalizeMermaidScript } from '../diagram/utils'
 import type { SkillFile } from '../skills/types'
 
 function getBackendUrl(): string {
-  return import.meta.env.VITE_BACKEND_URL ?? '/api'
+  return (import.meta.env.VITE_BACKEND_URL ?? '').replace(/\/$/, '')
+}
+
+function getCatalogUrl(): string {
+  const base = getBackendUrl()
+
+  if (!base || base === '/api') {
+    return '/api/ias'
+  }
+
+  return `${base}/api/ias`
+}
+
+function getChatCompletionsUrl(): string {
+  const base = getBackendUrl()
+
+  if (!base || base === '/api') {
+    return '/v1/chat/completions'
+  }
+
+  return `${base}/v1/chat/completions`
 }
 
 type CatalogEndpoint = {
@@ -33,6 +53,24 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms)
   })
+}
+
+async function readErrorDetail(response: Response): Promise<string> {
+  try {
+    const text = await response.text()
+    if (!text) return ''
+
+    try {
+      const parsed = JSON.parse(text) as { error?: unknown; message?: unknown; details?: unknown }
+      const candidates = [parsed.error, parsed.message, parsed.details]
+      const picked = candidates.find((value) => typeof value === 'string' && value.trim().length > 0)
+      return typeof picked === 'string' ? picked.trim() : text.slice(0, 260)
+    } catch {
+      return text.slice(0, 260)
+    }
+  } catch {
+    return ''
+  }
 }
 
 function estimateStrengthScore(model: string, category: string): number {
@@ -91,7 +129,7 @@ async function resolveReasoningModel(): Promise<string> {
   }
 
   try {
-    const response = await fetch(`${getBackendUrl()}/api/ias`)
+    const response = await fetch(getCatalogUrl())
     if (!response.ok) {
       cachedReasoningModel = 'deepseek-v3.2'
       return cachedReasoningModel
@@ -112,20 +150,21 @@ async function chatCompletions(
   maxTokens: number,
   modelOverride?: string,
 ): Promise<string> {
-  const model = modelOverride ?? await resolveReasoningModel()
+  let activeModel = modelOverride ?? await resolveReasoningModel()
+  let usedFallbackModel = false
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 45000)
 
     try {
-      const response = await fetch(`${getBackendUrl()}/v1/chat/completions`, {
+      const response = await fetch(getChatCompletionsUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model,
+          model: activeModel,
           max_tokens: maxTokens,
           messages,
         }),
@@ -134,9 +173,17 @@ async function chatCompletions(
 
       if (!response.ok) {
         const transient = response.status === 502 || response.status === 503 || response.status === 504
+        const detail = await readErrorDetail(response)
 
         if (transient && attempt === 0) {
           await delay(700)
+          continue
+        }
+
+        if (response.status === 500 && !usedFallbackModel && activeModel !== 'deepseek-v3.2') {
+          activeModel = 'deepseek-v3.2'
+          usedFallbackModel = true
+          await delay(450)
           continue
         }
 
@@ -144,7 +191,8 @@ async function chatCompletions(
           throw new Error('Oxlo tardo demasiado en responder (504 Gateway Timeout). Intenta de nuevo o usa un modelo mas ligero.')
         }
 
-        throw new Error(`Error Oxlo completions HTTP ${response.status}`)
+        const suffix = detail ? `: ${detail}` : ''
+        throw new Error(`Error Oxlo completions HTTP ${response.status} (${activeModel})${suffix}`)
       }
 
       const data = await response.json()
@@ -182,7 +230,7 @@ export async function getChatModelOptions(): Promise<ChatModelOption[]> {
   }
 
   try {
-    const response = await fetch(`${getBackendUrl()}/api/ias`)
+    const response = await fetch(getCatalogUrl())
     if (!response.ok) {
       cachedChatModelOptions = fallbackChatModels()
       return cachedChatModelOptions
