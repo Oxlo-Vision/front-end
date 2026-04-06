@@ -26,7 +26,7 @@ import { fallbackSkillFiles } from '../features/skills/utils'
 
 type AppState = 'idle' | 'processing' | 'done'
 type AiMode = 'unknown' | 'oxlo' | 'fallback'
-type ResultTab = 'summary' | 'mindmap' | 'conceptmap' | 'diagram' | 'chat' | 'skills' | 'keypoints' | 'markdown' | 'raw'
+type ResultTab = 'summary' | 'mindmap' | 'conceptmap' | 'diagram' | 'skills' | 'keypoints' | 'markdown' | 'raw'
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
 const PROCESSING_STEPS = [
@@ -46,7 +46,6 @@ const RESULT_TABS: { id: ResultTab; label: string; icon: string }[] = [
   { id: 'mindmap', label: 'Mapa Mental', icon: '🧠' },
   { id: 'conceptmap', label: 'Mapa Conceptual', icon: '🗺️' },
   { id: 'diagram', label: 'Diagramas', icon: '📐' },
-  { id: 'chat', label: 'Chat PDF', icon: '💬' },
   { id: 'skills', label: 'Skills', icon: '🧩' },
   { id: 'keypoints', label: 'Puntos Clave', icon: '🎯' },
   { id: 'markdown', label: 'Archivo .md', icon: '📝' },
@@ -369,6 +368,76 @@ export default function Dashboard() {
     }
   }
 
+  const chatSidebar = (
+    <aside className="db-chat-sidebar">
+      <div className="db-chat-card">
+        <div className="rp-header">
+          <h3>Copilot PDF</h3>
+        </div>
+        <p className="rp-meta">Chat lateral con contexto del documento cargado.</p>
+
+        <div className="chat-model-row">
+          <label htmlFor="chat-model">Modelo Oxlo (debil → fuerte)</label>
+          <select
+            id="chat-model"
+            className="chat-model-select"
+            value={selectedChatModel}
+            onChange={(event) => setSelectedChatModel(event.target.value)}
+          >
+            {chatModelOptions.length === 0 && <option value="">Cargando modelos...</option>}
+            {chatModelOptions.map((option) => (
+              <option key={option.model} value={option.model}>
+                {option.displayName} · {option.category} · score {option.strengthScore}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="chat-thread">
+          {chatMessages.length === 0 && (
+            <div className="chat-empty">
+              Aun no hay mensajes. Prueba con: "Que conclusiones principales tiene este PDF?"
+            </div>
+          )}
+          {chatMessages.map((message, index) => (
+            <div key={`${message.role}-${index}`} className={`chat-message chat-message--${message.role}`}>
+              <div className="chat-message-role">{message.role === 'user' ? 'Tu' : 'Oxlo'}</div>
+              <div className="chat-message-text">{message.content}</div>
+            </div>
+          ))}
+          {chatSending && (
+            <div className="chat-message chat-message--assistant">
+              <div className="chat-message-role">Oxlo</div>
+              <div className="chat-message-text">Pensando respuesta...</div>
+            </div>
+          )}
+        </div>
+
+        <div className="chat-input-row">
+          <textarea
+            className="chat-input"
+            value={chatInput}
+            placeholder="Pregunta sobre el PDF..."
+            onChange={(event) => setChatInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                void sendChatMessage()
+              }
+            }}
+          />
+          <button
+            className="chat-send"
+            onClick={() => void sendChatMessage()}
+            disabled={chatSending || !selectedChatModel || chatInput.trim().length === 0}
+          >
+            Enviar
+          </button>
+        </div>
+      </div>
+    </aside>
+  )
+
   return (
     <div className="db-root">
       <aside className="db-sidebar">
@@ -513,8 +582,9 @@ export default function Dashboard() {
           )}
 
           {appState === 'done' && (
-            <div className="db-results">
-              <div className="results-info-bar">
+            <div className="db-results-layout">
+              <div className="db-results db-results-main">
+                <div className="results-info-bar">
                 <div className="results-file">
                   <span className="results-file-icon">📄</span>
                   <div>
@@ -523,21 +593,21 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <button className="db-btn-ghost" onClick={handleReset}>+ Nuevo PDF</button>
-              </div>
+                </div>
 
-              <div className="results-tabs">
-                {RESULT_TABS.map((tab) => (
-                  <button
-                    key={tab.id}
-                    className={`results-tab ${activeTab === tab.id ? 'results-tab--active' : ''}`}
-                    onClick={() => setActiveTab(tab.id)}
-                  >
-                    <span>{tab.icon}</span>{tab.label}
-                  </button>
-                ))}
-              </div>
+                <div className="results-tabs">
+                  {RESULT_TABS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      className={`results-tab ${activeTab === tab.id ? 'results-tab--active' : ''}`}
+                      onClick={() => setActiveTab(tab.id)}
+                    >
+                      <span>{tab.icon}</span>{tab.label}
+                    </button>
+                  ))}
+                </div>
 
-              <div className="results-body">
+                <div className="results-body">
                 {activeTab === 'summary' && (
                   <div className="result-panel">
                     <div className="rp-header">
@@ -617,74 +687,6 @@ export default function Dashboard() {
                       </>
                     )}
                     {!diagram && <p className="rp-body">No hay diagrama disponible.</p>}
-                  </div>
-                )}
-
-                {activeTab === 'chat' && (
-                  <div className="result-panel chat-panel">
-                    <div className="rp-header">
-                      <h3>Chat con contexto del PDF</h3>
-                    </div>
-                    <p className="rp-meta">Pregunta sobre el documento cargado. El modelo usa resumen, puntos clave y texto extraido.</p>
-
-                    <div className="chat-model-row">
-                      <label htmlFor="chat-model">Modelo Oxlo (debil → fuerte)</label>
-                      <select
-                        id="chat-model"
-                        className="chat-model-select"
-                        value={selectedChatModel}
-                        onChange={(event) => setSelectedChatModel(event.target.value)}
-                      >
-                        {chatModelOptions.length === 0 && <option value="">Cargando modelos...</option>}
-                        {chatModelOptions.map((option) => (
-                          <option key={option.model} value={option.model}>
-                            {option.displayName} · {option.category} · score {option.strengthScore}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="chat-thread">
-                      {chatMessages.length === 0 && (
-                        <div className="chat-empty">
-                          Aun no hay mensajes. Prueba con: "Que conclusiones principales tiene este PDF?"
-                        </div>
-                      )}
-                      {chatMessages.map((message, index) => (
-                        <div key={`${message.role}-${index}`} className={`chat-message chat-message--${message.role}`}>
-                          <div className="chat-message-role">{message.role === 'user' ? 'Tu' : 'Oxlo'}</div>
-                          <div className="chat-message-text">{message.content}</div>
-                        </div>
-                      ))}
-                      {chatSending && (
-                        <div className="chat-message chat-message--assistant">
-                          <div className="chat-message-role">Oxlo</div>
-                          <div className="chat-message-text">Pensando respuesta...</div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="chat-input-row">
-                      <textarea
-                        className="chat-input"
-                        value={chatInput}
-                        placeholder="Escribe tu pregunta sobre el PDF..."
-                        onChange={(event) => setChatInput(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' && !event.shiftKey) {
-                            event.preventDefault()
-                            void sendChatMessage()
-                          }
-                        }}
-                      />
-                      <button
-                        className="chat-send"
-                        onClick={() => void sendChatMessage()}
-                        disabled={chatSending || !selectedChatModel || chatInput.trim().length === 0}
-                      >
-                        Enviar
-                      </button>
-                    </div>
                   </div>
                 )}
 
@@ -769,7 +771,10 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
+                </div>
               </div>
+
+              {chatSidebar}
             </div>
           )}
         </div>

@@ -421,6 +421,34 @@
 ────────────────────────────────────────────────────────────────── */
 .db-results { display: flex; flex-direction: column; gap: 20px; }
 
+.db-results-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 18px;
+  align-items: start;
+}
+
+.db-results-main {
+  min-width: 0;
+}
+
+.db-chat-sidebar {
+  position: sticky;
+  top: 12px;
+}
+
+.db-chat-card {
+  background: linear-gradient(180deg, rgba(17,20,24,0.96) 0%, rgba(9,11,14,0.98) 100%);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: calc(100vh - 120px);
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.35);
+}
+
 .results-info-bar {
   display: flex; align-items: center;
   justify-content: space-between;
@@ -744,7 +772,7 @@
   background: rgba(5, 7, 10, 0.45);
   padding: 12px;
   min-height: 240px;
-  max-height: 420px;
+  flex: 1;
   overflow: auto;
   display: flex;
   flex-direction: column;
@@ -820,6 +848,20 @@
 .chat-send:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+@media (max-width: 1200px) {
+  .db-results-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .db-chat-sidebar {
+    position: static;
+  }
+
+  .db-chat-card {
+    min-height: 520px;
+  }
 }
 
 /* ── Skill panel ───────────────────────────────────────────────── */
