@@ -33,3 +33,15 @@ ya esta listo un microservicio en micronaut con java para el proyecto con su res
 - Front-end usa `VITE_BACKEND_URL=/api` por defecto para desarrollo (proxy Vite -> backend `http://localhost:8080`).
 - Se puede configurar `VITE_BACKEND_URL` con otra ruta/base si se necesita.
 - OCR se aplica automaticamente cuando una pagina del PDF no contiene texto extraible.
+
+## Deploy en Vercel
+
+- El proyecto incluye un proxy serverless en `api/[...path].js`.
+- El frontend mantiene `VITE_BACKEND_URL=/api` y nunca expone la URL real del backend en el bundle.
+- En Vercel configura esta variable de entorno:
+  - `BACKEND_URL=https://oxlo-backend.onrender.com`
+- Mapeo del proxy:
+  - `/api/v1/:path*` -> `BACKEND_URL/v1/:path*`
+  - `/api/:path*` -> `BACKEND_URL/api/:path*`
+- Build command: `npm run build`
+- Output directory: `dist`
