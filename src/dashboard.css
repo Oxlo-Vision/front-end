@@ -624,6 +624,58 @@
 }
 .md-body code { font-family: inherit; color: var(--cyan); }
 
+.diagram-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.skill-files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.skill-file-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(5, 7, 10, 0.45);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skill-file-head h4 {
+  color: var(--white);
+  font-size: 0.92rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.skill-file-head span {
+  color: var(--soft-gray);
+  font-size: 0.76rem;
+}
+
+.skill-file-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.skill-file-preview {
+  margin: 0;
+  border: 1px solid var(--border);
+  background: rgba(5, 7, 10, 0.6);
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--soft-gray);
+  overflow: auto;
+  max-height: 260px;
+}
+
 /* ── Skill panel ───────────────────────────────────────────────── */
 .skill-cards { display: flex; flex-direction: column; gap: 12px; margin: 16px 0; }
 .skill-card {

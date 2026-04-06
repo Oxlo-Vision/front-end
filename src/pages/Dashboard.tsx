@@ -2,17 +2,27 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import '../dashboard.css'
 import { extractPdfText, type ExtractedPdf } from '../features/pdf/extractPdfText'
-import { generateConceptMapWithOxlo, generateMindMapWithOxlo, generateSummaryWithOxlo } from '../features/oxlo/chat'
+import {
+  generateConceptMapWithOxlo,
+  generateDiagramWithOxlo,
+  generateMindMapWithOxlo,
+  generateSkillFilesWithOxlo,
+  generateSummaryWithOxlo,
+} from '../features/oxlo/chat'
 import { MindMapPanel } from '../features/mindmap/components/MindMapPanel'
 import { buildMarkdown, fallbackMindMap, mindMapToFlow, simpleKeyPoints } from '../features/mindmap/utils'
 import type { MindMapData } from '../features/mindmap/types'
 import { ConceptMapPanel } from '../features/conceptmap/components/ConceptMapPanel'
 import { conceptMapToFlow, fallbackConceptMap } from '../features/conceptmap/utils'
 import type { ConceptMapData } from '../features/conceptmap/types'
+import type { DiagramArtifact } from '../features/diagram/types'
+import { diagramFileExtension, diagramKindLabel, fallbackDiagram } from '../features/diagram/utils'
+import type { SkillFile } from '../features/skills/types'
+import { fallbackSkillFiles } from '../features/skills/utils'
 
 type AppState = 'idle' | 'processing' | 'done'
 type AiMode = 'unknown' | 'oxlo' | 'fallback'
-type ResultTab = 'summary' | 'mindmap' | 'conceptmap' | 'keypoints' | 'markdown' | 'raw'
+type ResultTab = 'summary' | 'mindmap' | 'conceptmap' | 'diagram' | 'skills' | 'keypoints' | 'markdown' | 'raw'
 
 const PROCESSING_STEPS = [
   'Validando archivo PDF',
@@ -21,6 +31,8 @@ const PROCESSING_STEPS = [
   'Generando resumen con Oxlo',
   'Generando mapa mental',
   'Generando mapa conceptual',
+  'Generando diagrama contextual',
+  'Generando skill files',
   'Finalizando',
 ]
 
@@ -28,6 +40,8 @@ const RESULT_TABS: { id: ResultTab; label: string; icon: string }[] = [
   { id: 'summary', label: 'Resumen', icon: '📋' },
   { id: 'mindmap', label: 'Mapa Mental', icon: '🧠' },
   { id: 'conceptmap', label: 'Mapa Conceptual', icon: '🗺️' },
+  { id: 'diagram', label: 'Diagramas', icon: '📐' },
+  { id: 'skills', label: 'Skills', icon: '🧩' },
   { id: 'keypoints', label: 'Puntos Clave', icon: '🎯' },
   { id: 'markdown', label: 'Archivo .md', icon: '📝' },
   { id: 'raw', label: 'Texto extraido', icon: '📄' },
@@ -59,6 +73,8 @@ export default function Dashboard() {
   const [summary, setSummary] = useState('')
   const [mindMap, setMindMap] = useState<MindMapData | null>(null)
   const [conceptMap, setConceptMap] = useState<ConceptMapData | null>(null)
+  const [diagram, setDiagram] = useState<DiagramArtifact | null>(null)
+  const [skillFiles, setSkillFiles] = useState<SkillFile[]>([])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -81,17 +97,34 @@ export default function Dashboard() {
     setExtractedText(extracted.text)
   }
 
+  const downloadTextFile = (fileNameToSave: string, content: string, mimeType = 'text/plain;charset=utf-8'): void => {
+    const blob = new Blob([content], { type: mimeType })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = fileNameToSave
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+  }
+
   const runFallbackMode = (file: File, extracted: ExtractedPdf, reason: string): void => {
     const fallbackText = extracted.text.slice(0, 1400)
     const fallbackSummary = `Resumen local de respaldo:\n\n${fallbackText}${extracted.text.length > 1400 ? '...' : ''}`
 
     const points = simpleKeyPoints(extracted.text)
+    const fallbackMd = buildMarkdown(file.name, fallbackSummary, points)
     const localMindMap = fallbackMindMap(file.name, fallbackSummary, points)
     const localConceptMap = fallbackConceptMap(file.name, fallbackSummary, points)
+    const localDiagram = fallbackDiagram(file.name, fallbackSummary, extracted.text, points)
+    const localSkills = fallbackSkillFiles(file.name, fallbackSummary, points, fallbackMd)
 
     setSummary(fallbackSummary)
     setMindMap(localMindMap)
     setConceptMap(localConceptMap)
+    setDiagram(localDiagram)
+    setSkillFiles(localSkills)
     setAiMode('fallback')
     setAiModeDetail(`Fallback local activo: ${reason}`)
   }
@@ -124,9 +157,9 @@ export default function Dashboard() {
 
       if (!extracted.text || extracted.text.length < 40) {
         runFallbackMode(file, extracted, 'No se extrajo texto suficiente para usar el backend')
-        setProcessStep(6)
+        setProcessStep(8)
         setProcessProgress(100)
-        setDisplayLabel(PROCESSING_STEPS[6])
+        setDisplayLabel(PROCESSING_STEPS[8])
         setAppState('done')
         setActiveTab('summary')
         return
@@ -138,6 +171,9 @@ export default function Dashboard() {
 
       try {
         const aiSummary = await generateSummaryWithOxlo(extracted.text)
+        const summaryPoints = simpleKeyPoints(aiSummary)
+        const summaryMarkdown = buildMarkdown(file.name, aiSummary, summaryPoints)
+
         setSummary(aiSummary)
         setAiMode('oxlo')
         setAiModeDetail('Resumen y estructuras generadas con Oxlo API')
@@ -150,29 +186,53 @@ export default function Dashboard() {
           const aiMindMap = await generateMindMapWithOxlo(file.name, extracted.text, aiSummary)
           setMindMap(aiMindMap)
         } catch {
-          setMindMap(fallbackMindMap(file.name, aiSummary, simpleKeyPoints(aiSummary)))
+          setMindMap(fallbackMindMap(file.name, aiSummary, summaryPoints))
           setAiModeDetail('Resumen con Oxlo + mapa mental local de respaldo')
         }
 
         setProcessStep(5)
-        setProcessProgress(96)
+        setProcessProgress(94)
         setDisplayLabel(PROCESSING_STEPS[5])
 
         try {
           const aiConceptMap = await generateConceptMapWithOxlo(file.name, extracted.text, aiSummary)
           setConceptMap(aiConceptMap)
         } catch {
-          setConceptMap(fallbackConceptMap(file.name, aiSummary, simpleKeyPoints(aiSummary)))
+          setConceptMap(fallbackConceptMap(file.name, aiSummary, summaryPoints))
           setAiModeDetail('Resumen con Oxlo + mapa conceptual local de respaldo')
+        }
+
+        setProcessStep(6)
+        setProcessProgress(96)
+        setDisplayLabel(PROCESSING_STEPS[6])
+
+        try {
+          const aiDiagram = await generateDiagramWithOxlo(file.name, extracted.text, aiSummary)
+          setDiagram(aiDiagram)
+        } catch {
+          setDiagram(fallbackDiagram(file.name, aiSummary, extracted.text, summaryPoints))
+          setAiModeDetail('Resumen con Oxlo + diagrama local de respaldo')
+        }
+
+        setProcessStep(7)
+        setProcessProgress(98)
+        setDisplayLabel(PROCESSING_STEPS[7])
+
+        try {
+          const aiSkills = await generateSkillFilesWithOxlo(file.name, aiSummary, summaryPoints, summaryMarkdown)
+          setSkillFiles(aiSkills)
+        } catch {
+          setSkillFiles(fallbackSkillFiles(file.name, aiSummary, summaryPoints, summaryMarkdown))
+          setAiModeDetail('Resumen con Oxlo + skills locales de respaldo')
         }
       } catch (summaryError) {
         const reason = summaryError instanceof Error ? summaryError.message : 'No se pudo conectar al backend'
         runFallbackMode(file, extracted, reason)
       }
 
-      setProcessStep(6)
+      setProcessStep(8)
       setProcessProgress(100)
-      setDisplayLabel(PROCESSING_STEPS[6])
+      setDisplayLabel(PROCESSING_STEPS[8])
       setAppState('done')
       setActiveTab('summary')
     } catch (error) {
@@ -224,6 +284,8 @@ export default function Dashboard() {
     setSummary('')
     setMindMap(null)
     setConceptMap(null)
+    setDiagram(null)
+    setSkillFiles([])
     setActiveTab('summary')
   }
 
@@ -321,6 +383,8 @@ export default function Dashboard() {
                     { icon: '📋', label: 'Resumen IA', checked: true },
                     { icon: '🧠', label: 'Mapa mental React Flow', checked: true },
                     { icon: '🗺️', label: 'Mapa conceptual IA', checked: true },
+                    { icon: '📐', label: 'Diagrama UML/ER contextual', checked: true },
+                    { icon: '🧩', label: 'Skill files para IA', checked: true },
                     { icon: '🎯', label: 'Puntos clave', checked: true },
                     { icon: '📝', label: 'Salida Markdown', checked: true },
                   ].map((option) => (
@@ -431,6 +495,83 @@ export default function Dashboard() {
                     flow={conceptMapFlow}
                     onCopyJson={() => void copyToClipboard(JSON.stringify(conceptMap, null, 2))}
                   />
+                )}
+
+                {activeTab === 'diagram' && (
+                  <div className="result-panel markdownp">
+                    <div className="rp-header">
+                      <h3>Diagrama contextual</h3>
+                      <div className="diagram-actions">
+                        <button
+                          className="rp-copy"
+                          onClick={() => void copyToClipboard(diagram?.mermaid || '')}
+                          disabled={!diagram}
+                        >
+                          Copiar Mermaid
+                        </button>
+                        <button
+                          className="rp-copy"
+                          onClick={() => {
+                            if (!diagram) return
+                            downloadTextFile(
+                              `diagram-${diagram.kind}.${diagramFileExtension()}`,
+                              diagram.mermaid,
+                              'text/plain;charset=utf-8',
+                            )
+                          }}
+                          disabled={!diagram}
+                        >
+                          Descargar
+                        </button>
+                      </div>
+                    </div>
+                    {diagram && (
+                      <>
+                        <p className="rp-meta">Tipo: {diagramKindLabel(diagram.kind)}</p>
+                        <p className="rp-meta">Criterio: {diagram.rationale}</p>
+                        <div className="md-preview">
+                          <div className="md-header">
+                            <span className="code-dot" style={{ background: '#ff5f56' }} />
+                            <span className="code-dot" style={{ background: '#ffbd2e' }} />
+                            <span className="code-dot" style={{ background: '#27c93f' }} />
+                            <span className="md-filename">diagram.mmd</span>
+                          </div>
+                          <pre className="md-body"><code>{diagram.mermaid}</code></pre>
+                        </div>
+                      </>
+                    )}
+                    {!diagram && <p className="rp-body">No hay diagrama disponible.</p>}
+                  </div>
+                )}
+
+                {activeTab === 'skills' && (
+                  <div className="result-panel">
+                    <div className="rp-header">
+                      <h3>Skills para asistentes IA</h3>
+                    </div>
+                    <p className="rp-meta">Archivos listos para reutilizar en asistentes de desarrollo y analisis.</p>
+                    <div className="skill-files-grid">
+                      {skillFiles.length === 0 && <p className="rp-body">No hay skills generados.</p>}
+                      {skillFiles.map((skillFile) => (
+                        <div className="skill-file-card" key={skillFile.fileName}>
+                          <div className="skill-file-head">
+                            <h4>{skillFile.fileName}</h4>
+                            <span>{skillFile.description}</span>
+                          </div>
+                          <div className="skill-file-actions">
+                            <button className="rp-copy" onClick={() => void copyToClipboard(skillFile.content)}>Copiar</button>
+                            <button
+                              className="rp-copy"
+                              onClick={() => downloadTextFile(skillFile.fileName, skillFile.content, 'text/markdown;charset=utf-8')}
+                            >
+                              Descargar
+                            </button>
+                          </div>
+                          <pre className="skill-file-preview"><code>{skillFile.content.slice(0, 380)}{skillFile.content.length > 380 ? '\n...' : ''}</code></pre>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 {activeTab === 'keypoints' && (

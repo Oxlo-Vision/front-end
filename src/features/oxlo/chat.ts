@@ -1,5 +1,7 @@
 import type { MindMapData } from '../mindmap/types'
 import type { ConceptMapData } from '../conceptmap/types'
+import type { DiagramArtifact, DiagramKind } from '../diagram/types'
+import type { SkillFile } from '../skills/types'
 
 function getBackendUrl(): string {
   return import.meta.env.VITE_BACKEND_URL ?? '/api'
@@ -181,4 +183,107 @@ export async function generateConceptMapWithOxlo(fileName: string, text: string,
       }))
       .slice(0, 30),
   }
+}
+
+export async function generateDiagramWithOxlo(fileName: string, text: string, summary: string): Promise<DiagramArtifact> {
+  const clippedSummary = summary.slice(0, 2200)
+  const clippedText = text.slice(0, 6500)
+
+  const content = await chatCompletions(
+    [
+      {
+        role: 'system',
+        content: 'Responde solo JSON valido sin markdown. Debes elegir el tipo de diagrama mas adecuado segun el contexto.',
+      },
+      {
+        role: 'user',
+        content:
+          `Genera un diagrama contextual para este documento. ` +
+          `NO uses ER si el documento no trata de datos/entidades relacionales (por ejemplo biologia, historia, derecho). ` +
+          `Responde JSON exacto: ` +
+          `{"kind":"uml_class|uml_sequence|er|flowchart","title":"string","rationale":"string","mermaid":"string"}. ` +
+          `El campo mermaid debe ser codigo Mermaid valido del tipo elegido.\n\n` +
+          `Archivo: ${fileName}\n\nResumen:\n${clippedSummary}\n\nTexto:\n${clippedText}`,
+      },
+    ],
+    1000,
+  )
+
+  const clean = content
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```/, '')
+    .replace(/```$/, '')
+
+  const parsed = JSON.parse(clean) as DiagramArtifact
+  const allowedKinds: DiagramKind[] = ['uml_class', 'uml_sequence', 'er', 'flowchart']
+
+  if (!parsed.kind || !allowedKinds.includes(parsed.kind) || !parsed.mermaid || !parsed.title) {
+    throw new Error('JSON de diagrama invalido.')
+  }
+
+  return {
+    kind: parsed.kind,
+    title: parsed.title,
+    rationale: parsed.rationale || 'Seleccionado por contexto del documento.',
+    mermaid: parsed.mermaid,
+  }
+}
+
+type SkillResponse = {
+  files: Array<{
+    fileName: string
+    description: string
+    content: string
+  }>
+}
+
+export async function generateSkillFilesWithOxlo(
+  fileName: string,
+  summary: string,
+  keyPoints: string[],
+  markdown: string,
+): Promise<SkillFile[]> {
+  const clippedSummary = summary.slice(0, 2000)
+  const clippedMarkdown = markdown.slice(0, 6500)
+  const points = keyPoints.slice(0, 8).map((point) => `- ${point}`).join('\n') || '- Sin puntos clave suficientes.'
+
+  const content = await chatCompletions(
+    [
+      {
+        role: 'system',
+        content: 'Responde solo JSON valido sin markdown.',
+      },
+      {
+        role: 'user',
+        content:
+          `Crea archivos de skills reutilizables para asistentes IA sobre este PDF. ` +
+          `Responde JSON exacto: {"files":[{"fileName":"string","description":"string","content":"string"}]}. ` +
+          `Genera exactamente 2 o 3 archivos Markdown, incluyendo un prompt operativo y una base de conocimiento.\n\n` +
+          `Archivo: ${fileName}\n\nResumen:\n${clippedSummary}\n\nPuntos clave:\n${points}\n\nMarkdown:\n${clippedMarkdown}`,
+      },
+    ],
+    1200,
+  )
+
+  const clean = content
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```/, '')
+    .replace(/```$/, '')
+
+  const parsed = JSON.parse(clean) as SkillResponse
+
+  if (!Array.isArray(parsed.files) || parsed.files.length === 0) {
+    throw new Error('JSON de skills invalido.')
+  }
+
+  return parsed.files
+    .filter((file) => file && typeof file.fileName === 'string' && typeof file.content === 'string')
+    .map((file) => ({
+      fileName: file.fileName,
+      description: typeof file.description === 'string' ? file.description : 'Skill generado por IA.',
+      content: file.content,
+    }))
+    .slice(0, 4)
 }
