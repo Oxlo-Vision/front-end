@@ -16,14 +16,14 @@ export function MindMapPanel({ mindMap, flow, onCopyJson }: MindMapPanelProps) {
   return (
     <div className="result-panel mindmap-panel">
       <div className="rp-header">
-        <h3>Mapa mental</h3>
-        <button className="rp-copy" onClick={onCopyJson}>Copiar JSON</button>
+        <h3>Mind map</h3>
+        <button className="rp-copy" onClick={onCopyJson}>Copy JSON</button>
       </div>
-      <p className="rp-meta">Visualizado con React Flow usando resumen y texto extraido</p>
+      <p className="rp-meta">Rendered with React Flow using summary and extracted text</p>
       <div className="mindmap-canvas">
         {!mindMap && (
           <div className="mindmap-empty">
-            No hay datos suficientes para construir el mapa mental.
+            Not enough data to build the mind map.
           </div>
         )}
         {mindMap && (

@@ -2,7 +2,7 @@ import { MarkerType, type Edge, type Node } from '@xyflow/react'
 import type { ConceptMapData } from './types'
 
 export function fallbackConceptMap(fileName: string, summary: string, keyPoints: string[]): ConceptMapData {
-  const title = fileName || 'Documento'
+  const title = fileName || 'Document'
   const basePoints = keyPoints.length > 0
     ? keyPoints
     : summary
@@ -25,7 +25,7 @@ export function fallbackConceptMap(fileName: string, summary: string, keyPoints:
     .map((node) => ({
       source: 'core',
       target: node.id,
-      label: 'relaciona',
+      label: 'relates to',
     }))
 
   return { title, nodes, relations }

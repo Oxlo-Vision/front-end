@@ -11,7 +11,7 @@ export function simpleKeyPoints(text: string): string[] {
 
 export function buildMarkdown(fileName: string, summary: string, points: string[]): string {
   const pointsMd = points.map((point) => `- ${point}`).join('\n')
-  return `# Resumen - ${fileName}\n\n## Puntos clave\n${pointsMd || '- Sin puntos clave suficientes.'}\n\n## Resumen ejecutivo\n${summary}`
+  return `# Summary - ${fileName}\n\n## Key points\n${pointsMd || '- Not enough key points.'}\n\n## Executive summary\n${summary}`
 }
 
 export function fallbackMindMap(fileName: string, summary: string, points: string[]): MindMapData {
@@ -31,8 +31,8 @@ export function fallbackMindMap(fileName: string, summary: string, points: strin
   })
 
   return {
-    centralTopic: fileName || 'Documento',
-    branches: branches.length > 0 ? branches : [{ title: 'Resumen', children: [summary.slice(0, 160)] }],
+    centralTopic: fileName || 'Document',
+    branches: branches.length > 0 ? branches : [{ title: 'Summary', children: [summary.slice(0, 160)] }],
   }
 }
 

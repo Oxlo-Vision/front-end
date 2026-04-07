@@ -49,12 +49,12 @@ export async function extractPdfText(
 
     if (pageText.length > 25) {
       pagesText.push(pageText)
-      onProgress(1, baseProgress, `${steps[1]} (pagina ${pageNum}/${pdf.numPages})`)
+      onProgress(1, baseProgress, `${steps[1]} (page ${pageNum}/${pdf.numPages})`)
       continue
     }
 
     ocrPages += 1
-    onProgress(2, baseProgress, `${steps[2]} (pagina ${pageNum}/${pdf.numPages})`)
+    onProgress(2, baseProgress, `${steps[2]} (page ${pageNum}/${pdf.numPages})`)
 
     const viewport = page.getViewport({ scale: 2 })
     const canvas = document.createElement('canvas')

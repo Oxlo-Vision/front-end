@@ -21,7 +21,7 @@ export function buildSafeFlowchartFromText(source: string): string {
     .filter((line) => line.length > 0)
     .slice(0, 6)
 
-  const nodes = lines.length > 0 ? lines : ['Contexto detectado', 'Analisis', 'Resultado']
+  const nodes = lines.length > 0 ? lines : ['Detected context', 'Analysis', 'Result']
   const ids = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
   const graphLines: string[] = ['flowchart TD']
 
@@ -90,10 +90,10 @@ function sanitizeSequenceLines(lines: string[]): string[] {
   if (!hasArrow) {
     return [
       'sequenceDiagram',
-      '  actor Usuario',
+      '  actor User',
       '  participant Sistema',
-      '  Usuario->>Sistema: Solicitud',
-      '  Sistema-->>Usuario: Respuesta',
+      '  User->>System: Request',
+      '  System-->>User: Response',
     ]
   }
 
@@ -111,7 +111,7 @@ export function normalizeMermaidScript(source: string, preferredKind?: DiagramKi
     .trim()
 
   if (!clean) {
-    return 'flowchart TD\n  A[Sin datos] --> B[No se pudo generar diagrama]'
+    return 'flowchart TD\n  A[No data] --> B[Could not generate diagram]'
   }
 
   const detectedKind = detectMermaidKind(clean)
@@ -174,10 +174,10 @@ function hasAny(text: string, words: string[]): boolean {
 function pickDiagramKind(text: string): DiagramKind {
   const lower = text.toLowerCase()
 
-  const bioWords = ['celula', 'biologia', 'gen', 'proteina', 'tejido', 'organismo', 'ecosistema']
-  const dbWords = ['tabla', 'database', 'base de datos', 'sql', 'relacion', 'entidad', 'atributo', 'llave']
-  const codeWords = ['clase', 'objeto', 'metodo', 'atributo', 'java', 'typescript', 'api', 'servicio']
-  const sequenceWords = ['paso', 'flujo', 'proceso', 'interaccion', 'request', 'response', 'mensaje']
+  const bioWords = ['cell', 'biology', 'gene', 'protein', 'tissue', 'organism', 'ecosystem']
+  const dbWords = ['table', 'database', 'sql', 'relation', 'entity', 'attribute', 'key']
+  const codeWords = ['class', 'object', 'method', 'attribute', 'java', 'typescript', 'api', 'service']
+  const sequenceWords = ['step', 'flow', 'process', 'interaction', 'request', 'response', 'message']
 
   if (!hasAny(lower, bioWords) && hasAny(lower, dbWords)) {
     return 'er'
@@ -196,25 +196,25 @@ function pickDiagramKind(text: string): DiagramKind {
 
 export function fallbackDiagram(fileName: string, summary: string, text: string, keyPoints: string[]): DiagramArtifact {
   const selectedKind = pickDiagramKind(`${summary}\n${text}`)
-  const title = fileName || 'Documento'
+  const title = fileName || 'Document'
 
   if (selectedKind === 'er') {
     return {
       kind: 'er',
-      title: `${title} - Diagrama ER`,
-      rationale: 'Se detecto terminologia de datos y relaciones; ER es el formato mas util.',
+      title: `${title} - ER Diagram`,
+      rationale: 'Data and relationship terminology was detected; ER is the most useful format.',
       mermaid: [
         'erDiagram',
-        '  ENTIDAD_PRINCIPAL ||--o{ ITEM : contiene',
-        '  ENTIDAD_PRINCIPAL {',
+        '  MAIN_ENTITY ||--o{ ITEM : contains',
+        '  MAIN_ENTITY {',
         '    string id',
-        '    string nombre',
-        '    string estado',
+        '    string name',
+        '    string status',
         '  }',
         '  ITEM {',
         '    string id',
-        '    string descripcion',
-        '    string tipo',
+        '    string description',
+        '    string type',
         '  }',
       ].join('\n'),
     }
@@ -223,25 +223,25 @@ export function fallbackDiagram(fileName: string, summary: string, text: string,
   if (selectedKind === 'uml_class') {
     return {
       kind: 'uml_class',
-      title: `${title} - UML Clases`,
-      rationale: 'Se detecto contexto tecnico de software; UML de clases describe mejor la estructura.',
+      title: `${title} - UML Classes`,
+      rationale: 'Technical software context was detected; a UML class diagram best describes the structure.',
       mermaid: [
         'classDiagram',
-        '  class Documento {',
-        '    +string titulo',
-        '    +string resumen',
-        '    +extraerTexto()',
+        '  class Document {',
+        '    +string title',
+        '    +string summary',
+        '    +extractText()',
         '  }',
-        '  class Analizador {',
-        '    +generarResumen()',
-        '    +generarMapa()',
+        '  class Analyzer {',
+        '    +generateSummary()',
+        '    +generateMap()',
         '  }',
-        '  class Resultado {',
-        '    +string tipo',
-        '    +string contenido',
+        '  class Result {',
+        '    +string type',
+        '    +string content',
         '  }',
-        '  Documento --> Analizador : procesa',
-        '  Analizador --> Resultado : produce',
+        '  Document --> Analyzer : processes',
+        '  Analyzer --> Result : produces',
       ].join('\n'),
     }
   }
@@ -249,20 +249,20 @@ export function fallbackDiagram(fileName: string, summary: string, text: string,
   if (selectedKind === 'uml_sequence') {
     return {
       kind: 'uml_sequence',
-      title: `${title} - UML Secuencia`,
-      rationale: 'El documento describe interacciones por pasos; UML secuencia representa el flujo temporal.',
+      title: `${title} - UML Sequence`,
+      rationale: 'The document describes step-based interactions; a sequence diagram represents temporal flow best.',
       mermaid: [
         'sequenceDiagram',
-        '  actor Usuario',
+        '  actor User',
         '  participant Front as Frontend',
         '  participant Back as Backend',
-        '  participant IA as Oxlo',
-        '  Usuario->>Front: Sube PDF',
-        '  Front->>Back: Solicita analisis',
-        '  Back->>IA: /v1/chat/completions',
-        '  IA-->>Back: Resumen y estructura',
-        '  Back-->>Front: Resultado',
-        '  Front-->>Usuario: Muestra diagrama',
+        '  participant AI as Oxlo',
+        '  User->>Front: Upload PDF',
+        '  Front->>Back: Request analysis',
+        '  Back->>AI: /v1/chat/completions',
+        '  AI-->>Back: Summary and structure',
+        '  Back-->>Front: Result',
+        '  Front-->>User: Render diagram',
       ].join('\n'),
     }
   }
@@ -270,13 +270,13 @@ export function fallbackDiagram(fileName: string, summary: string, text: string,
   const flowNodes = keyPoints.slice(0, 4)
   return {
     kind: 'flowchart',
-    title: `${title} - Flujo`,
-    rationale: 'No se detecto una ontologia de software o datos; se usa flujo general contextual.',
+    title: `${title} - Flow`,
+    rationale: 'No software or data ontology was detected; a general contextual flow is used.',
     mermaid: [
       'flowchart TD',
-      `  A[${title}] --> B[${flowNodes[0] || 'Contexto principal'}]`,
-      `  B --> C[${flowNodes[1] || 'Analisis'}]`,
-      `  C --> D[${flowNodes[2] || 'Resultado'}]`,
+      `  A[${title}] --> B[${flowNodes[0] || 'Main context'}]`,
+      `  B --> C[${flowNodes[1] || 'Analysis'}]`,
+      `  C --> D[${flowNodes[2] || 'Result'}]`,
       `  D --> E[${flowNodes[3] || 'Conclusion'}]`,
     ].join('\n'),
   }

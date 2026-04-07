@@ -23,50 +23,50 @@ const LogoIcon = () => (
 const features = [
   {
     icon: <FiFileText />,
-    title: 'Resumen Inteligente',
-    desc: 'Convierte PDFs extensos en resúmenes claros y accionables, manteniendo el contexto esencial del documento.',
+    title: 'Smart Summaries',
+    desc: 'Turn long PDFs into clear, actionable summaries while preserving the document context.',
   },
   {
     icon: <FiGitBranch />,
-    title: 'Mapas Conceptuales',
-    desc: 'Organiza ideas, conceptos y relaciones en diagramas claros para estudiar, explicar o presentar mejor la información.',
+    title: 'Concept Maps',
+    desc: 'Organize ideas, concepts, and relationships into clear diagrams for study, explanation, and presentations.',
   },
   {
     icon: <FiBookOpen />,
-    title: 'Mapas Mentales',
-    desc: 'Estructura el contenido en ramas jerárquicas para aprender más rápido y retener lo importante.',
+    title: 'Mind Maps',
+    desc: 'Structure content in hierarchical branches to learn faster and retain what matters.',
   },
   {
     icon: <FiTarget />,
-    title: 'Puntos Clave',
-    desc: 'Identifica de forma automática los hallazgos más relevantes para estudiar, investigar o tomar decisiones.',
+    title: 'Key Points',
+    desc: 'Automatically identify the most relevant findings for studying, research, and decision-making.',
   },
   {
     icon: <FiZap />,
-    title: 'Chat Contextual del Documento',
-    desc: 'Haz preguntas en lenguaje natural sobre el PDF y recibe respuestas basadas en su contenido.',
+    title: 'Contextual Document Chat',
+    desc: 'Ask natural-language questions about the PDF and get answers grounded in its content.',
   },
   {
     icon: <FiList />,
-    title: 'Exportables Listos para Usar',
-    desc: 'Descarga Markdown y texto extraído para compartir, documentar o reutilizar en otros flujos de trabajo.',
+    title: 'Ready-to-Use Exports',
+    desc: 'Download Markdown and extracted text to share, document, or reuse in other workflows.',
   },
 ]
 
 const steps = [
-  { num: '01', title: 'Sube cualquier PDF', desc: 'Carga apuntes, papers, manuales, contratos, reportes o documentación técnica.' },
-  { num: '02', title: 'Extracción y OCR', desc: 'La plataforma lee el contenido y recupera texto incluso en documentos escaneados.' },
-  { num: '03', title: 'Análisis con IA', desc: 'Genera resumen, mapas y puntos clave para entender el documento en menos tiempo.' },
-  { num: '04', title: 'Consulta y exporta', desc: 'Pregunta al chat sobre el contenido y descarga resultados listos para usar.' },
+  { num: '01', title: 'Upload any PDF', desc: 'Upload notes, papers, manuals, contracts, reports, or technical documentation.' },
+  { num: '02', title: 'Extraction and OCR', desc: 'The platform reads content and recovers text even from scanned documents.' },
+  { num: '03', title: 'AI Analysis', desc: 'Generate summaries, maps, and key points to understand documents faster.' },
+  { num: '04', title: 'Ask and Export', desc: 'Chat about the content and download ready-to-use outputs.' },
 ]
 
 const outputs = [
-  { icon: <FiFileText />, title: 'Resumen ejecutivo', desc: 'Síntesis clara de las ideas más relevantes del PDF.' },
-  { icon: <FiLink2 />, title: 'Mapa conceptual', desc: 'Relación visual entre conceptos clave del documento.' },
-  { icon: <FiGitBranch />, title: 'Mapa mental', desc: 'Estructura jerárquica para estudiar o explicar contenidos complejos.' },
-  { icon: <FiTarget />, title: 'Puntos clave', desc: 'Lista priorizada de hallazgos importantes para acción rápida.' },
-  { icon: <FiList />, title: 'Texto extraído y Markdown', desc: 'Archivos listos para compartir, revisar o usar con asistentes de IA.' },
-  { icon: <FiTool />, title: 'Chat sobre el documento', desc: 'Respuestas puntuales basadas en el contenido del PDF cargado.' },
+  { icon: <FiFileText />, title: 'Executive Summary', desc: 'Clear synthesis of the most relevant ideas in the PDF.' },
+  { icon: <FiLink2 />, title: 'Concept Map', desc: 'Visual relationships between key document concepts.' },
+  { icon: <FiGitBranch />, title: 'Mind Map', desc: 'Hierarchical structure to study or explain complex content.' },
+  { icon: <FiTarget />, title: 'Key Points', desc: 'Prioritized list of important findings for quick action.' },
+  { icon: <FiList />, title: 'Extracted Text and Markdown', desc: 'Files ready to share, review, or use with AI assistants.' },
+  { icon: <FiTool />, title: 'Document Chat', desc: 'Focused answers grounded in the uploaded PDF content.' },
 ]
 
 // ── Component ──────────────────────────────────────────────────
@@ -84,10 +84,10 @@ export default function App() {
           </a>
 
           <ul className="nav__links">
-            <li><a href="#features">Características</a></li>
-            <li><a href="#how">Cómo funciona</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#how">How it works</a></li>
             <li><a href="#outputs">Outputs</a></li>
-            <li><Link to="/app" className="nav__cta">Iniciar análisis</Link></li>
+            <li><Link to="/app" className="nav__cta">Start analysis</Link></li>
           </ul>
         </div>
       </nav>
@@ -99,29 +99,29 @@ export default function App() {
           <div className="hero__content">
             <div className="hero__badge">
               <span className="badge-dot" />
-              Para estudiantes, profesionales y equipos
+              For students, professionals, and teams
             </div>
 
             <h1 className="hero__title">
-              Cualquier PDF.<br />
-              <em>Entendido</em> en minutos.
+              Any PDF.<br />
+              <em>Understood</em> in minutes.
             </h1>
 
             <p className="hero__desc">
-              Oxlo Vision transforma documentos PDF complejos en resúmenes,
-              mapas y respuestas contextuales para estudiar, investigar,
-              trabajar y decidir mejor.
+              Oxlo Vision transforms complex PDFs into summaries,
+              maps, and contextual answers for studying, research,
+              work, and faster decision-making.
             </p>
 
             <div className="hero__actions">
               <Link to="/app" className="btn-primary">
-                <span>Iniciar análisis</span>
+                <span>Start analysis</span>
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </Link>
               <a href="#how" className="btn-secondary">
-                Ver demo
+                View demo
               </a>
             </div>
           </div>
@@ -130,21 +130,21 @@ export default function App() {
           <div className="hero__visual">
             <div className="hero__badge-float hero__badge-float--tl">
               <span className="badge-float-dot" />
-              OCR + IA sobre cualquier PDF
+              OCR + AI on any PDF
             </div>
 
             <div className="hero__card">
               <div className="card__header">
                 <div className="card__icon"><FiFileText /></div>
                 <div>
-                  <div className="card__filename">manual_redes_avanzadas.pdf</div>
-                  <div className="card__size">2.4 MB · 87 páginas</div>
+                  <div className="card__filename">document.pdf</div>
+                  <div className="card__size">2.4 MB · 87 pages</div>
                 </div>
               </div>
 
               <div className="card__progress">
                 <div className="progress-label">
-                  <span>Analizando documento…</span>
+                  <span>Analyzing document...</span>
                   <span style={{ color: 'var(--cyan)' }}>87%</span>
                 </div>
                 <div className="progress-bar">
@@ -154,9 +154,9 @@ export default function App() {
 
               <div className="card__outputs">
                 {[
-                  { label: 'Resumen', active: true },
-                  { label: 'Mapa conceptual', active: true },
-                  { label: 'Puntos clave', active: false },
+                  { label: 'Summary', active: true },
+                  { label: 'Concept map', active: true },
+                  { label: 'Key points', active: false },
                   { label: 'Chat', active: false },
                 ].map((o) => (
                   <div key={o.label} className={`output-chip ${o.active ? 'active' : ''}`}>
@@ -169,7 +169,7 @@ export default function App() {
 
             <div className="hero__badge-float hero__badge-float--br">
               <span className="badge-float-dot" />
-              Respuesta contextual en segundos
+              Contextual answers in seconds
             </div>
           </div>
         </div>
@@ -179,11 +179,11 @@ export default function App() {
       <section className="features" id="features">
         <div className="container">
           <div className="features__header">
-            <div className="section-label">Capacidades</div>
-            <h2 className="section-title">Análisis documental para todo tipo de perfiles</h2>
+            <div className="section-label">Capabilities</div>
+            <h2 className="section-title">Document analysis for every profile</h2>
             <p className="section-desc">
-              Desde estudiantes hasta ingenieros, abogados o equipos de negocio:
-              sube un PDF y convierte contenido denso en conocimiento útil.
+              From students to engineers, lawyers, and business teams:
+              upload a PDF and turn dense content into useful knowledge.
             </p>
           </div>
 
@@ -203,10 +203,10 @@ export default function App() {
       <section className="how" id="how">
         <div className="container how__inner">
           <div className="features__header how__header">
-            <div className="section-label">Proceso</div>
-            <h2 className="section-title">Flujo simple para cualquier documento</h2>
+            <div className="section-label">Process</div>
+            <h2 className="section-title">Simple workflow for any document</h2>
             <p className="section-desc">
-              De PDF a información accionable en cuatro pasos.
+              From PDF to actionable information in four steps.
             </p>
           </div>
 
@@ -228,9 +228,9 @@ export default function App() {
           {/* Left — list */}
           <div>
             <div className="section-label">Outputs</div>
-            <h2 className="section-title">Resultados listos para tu mesa de trabajo</h2>
+            <h2 className="section-title">Results ready for your workflow</h2>
             <p className="section-desc">
-              Cada salida está pensada para estudio, investigación, redacción y trabajo colaborativo.
+              Each output is designed for study, research, writing, and collaboration.
             </p>
 
             <div className="outputs__list">
@@ -256,20 +256,20 @@ export default function App() {
             </div>
             <div className="code-body">
               {[
-                { ln: '1', parts: [{ cls: 'ck', t: '# ' }, { cls: 'cs', t: 'Resumen ejecutivo' }] },
+                { ln: '1', parts: [{ cls: 'ck', t: '# ' }, { cls: 'cs', t: 'Executive summary' }] },
                 { ln: '2', parts: [] },
-                { ln: '3', parts: [{ cls: 'cc', t: '> Documento técnico sobre arquitectura de microservicios y observabilidad.' }] },
+                { ln: '3', parts: [{ cls: 'cc', t: '> Technical document on microservices architecture and observability.' }] },
                 { ln: '4', parts: [] },
-                { ln: '5', parts: [{ cls: 'ck', t: '## ' }, { cls: 'cm', t: 'Puntos clave' }] },
-                { ln: '6', parts: [{ cls: 'cs', t: '- ' }, { cls: 'cc', t: 'El sistema reduce latencia media en un 18% tras separar el servicio de colas.' }] },
-                { ln: '7', parts: [{ cls: 'cs', t: '- ' }, { cls: 'cc', t: 'Se recomienda trazabilidad distribuida para incidentes en producción.' }] },
-                { ln: '8', parts: [{ cls: 'cs', t: '- ' }, { cls: 'cc', t: 'La adopción de métricas SLO mejora la priorización de errores críticos.' }] },
+                { ln: '5', parts: [{ cls: 'ck', t: '## ' }, { cls: 'cm', t: 'Key points' }] },
+                { ln: '6', parts: [{ cls: 'cs', t: '- ' }, { cls: 'cc', t: 'The system reduced average latency by 18% after splitting the queue service.' }] },
+                { ln: '7', parts: [{ cls: 'cs', t: '- ' }, { cls: 'cc', t: 'Distributed tracing is recommended for production incident diagnosis.' }] },
+                { ln: '8', parts: [{ cls: 'cs', t: '- ' }, { cls: 'cc', t: 'Adopting SLO metrics improves prioritization of critical errors.' }] },
                 { ln: '9', parts: [] },
-                { ln: '10', parts: [{ cls: 'ck', t: '## ' }, { cls: 'cm', t: 'Mapa conceptual' }] },
+                { ln: '10', parts: [{ cls: 'ck', t: '## ' }, { cls: 'cm', t: 'Concept map' }] },
                 { ln: '11', parts: [{ cls: 'cc', t: '```mermaid' }] },
                 { ln: '12', parts: [{ cls: 'cs', t: 'graph TD' }] },
-                { ln: '13', parts: [{ cls: 'cc', t: '  A[Microservicios] --> B[Observabilidad]' }] },
-                { ln: '14', parts: [{ cls: 'cc', t: '  A --> C[Escalabilidad]' }] },
+                { ln: '13', parts: [{ cls: 'cc', t: '  A[Microservices] --> B[Observability]' }] },
+                { ln: '14', parts: [{ cls: 'cc', t: '  A --> C[Scalability]' }] },
                 { ln: '15', parts: [{ cls: 'cc', t: '```' }] },
               ].map((row) => (
                 <div className="code-line" key={row.ln}>
@@ -291,24 +291,24 @@ export default function App() {
         <div className="container cta-banner__inner">
           <div className="hero__badge" style={{ marginBottom: 0 }}>
             <span className="badge-dot" />
-            Sin tarjeta de crédito
+            No credit card required
           </div>
           <h2>
-            Convierte PDFs extensos en<br />
-            <span className="cyan">conocimiento accionable</span>
+            Turn long PDFs into<br />
+            <span className="cyan">actionable knowledge</span>
           </h2>
           <p>
-            Carga tu documento, analiza con IA y consulta por chat contextual.
-            Menos tiempo leyendo de forma manual, más tiempo creando valor.
+            Upload your document, analyze it with AI, and ask contextual questions by chat.
+            Less manual reading, more time creating value.
           </p>
           <div className="cta-banner__actions">
             <Link to="/app" className="btn-primary">
-              Probar con un PDF
+              Try with a PDF
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </Link>
-            <a href="#features" className="btn-secondary">Ver características</a>
+            <a href="#features" className="btn-secondary">View features</a>
           </div>
         </div>
       </section>
@@ -322,36 +322,36 @@ export default function App() {
                 <div className="nav__logo-icon"><LogoIcon /></div>
                 Oxlo<span>Vision</span>
               </a>
-              <p>Plataforma de análisis de PDFs para estudiantes, profesionales y equipos de cualquier sector.</p>
+              <p>PDF analysis platform for students, professionals, and teams across industries.</p>
             </div>
 
             <div className="footer__links">
               <div className="footer__col">
-                <h5>Producto</h5>
-                <a href="#features">Características</a>
-                <a href="#how">Cómo funciona</a>
+                <h5>Product</h5>
+                <a href="#features">Features</a>
+                <a href="#how">How it works</a>
                 <a href="#outputs">Outputs</a>
-                <a href="#">Precios</a>
+                <a href="#">Pricing</a>
               </div>
               <div className="footer__col">
-                <h5>Recursos</h5>
-                <a href="#">Documentación</a>
+                <h5>Resources</h5>
+                <a href="#">Documentation</a>
                 <a href="#">API</a>
                 <a href="#">Changelog</a>
                 <a href="#">Blog</a>
               </div>
               <div className="footer__col">
-                <h5>Empresa</h5>
-                <a href="#">Acerca de</a>
-                <a href="#">Contacto</a>
-                <a href="#">Privacidad</a>
-                <a href="#">Términos</a>
+                <h5>Company</h5>
+                <a href="#">About</a>
+                <a href="#">Contact</a>
+                <a href="#">Privacy</a>
+                <a href="#">Terms</a>
               </div>
             </div>
           </div>
 
           <div className="footer__bottom">
-            <span>© 2024 OxBuild — <span>Oxlo Vision</span>. Todos los derechos reservados.</span>
+            <span>© 2024 OxBuild — <span>Oxlo Vision</span>. All rights reserved.</span>
             
           </div>
         </div>

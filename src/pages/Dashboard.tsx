@@ -34,31 +34,31 @@ type AppState = 'idle' | 'processing' | 'done'
 type ResultTab = 'summary' | 'mindmap' | 'conceptmap' | 'keypoints' | 'markdown' | 'raw'
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
-const CHAT_TIMEOUT_FRIENDLY_MESSAGE = 'Ahora mismo estamos con mucha demanda en oxlo.ai y no llegamos a responder a tiempo. Intenta de nuevo en unos segundos o usa un modelo mas ligero.'
+const CHAT_TIMEOUT_FRIENDLY_MESSAGE = 'oxlo.ai is currently under high demand and could not respond in time. Try again in a few seconds or switch to a lighter model.'
 
 function getModelTier(strengthScore: number): { label: string; tone: 'light' | 'balanced' | 'pro' } {
-  if (strengthScore < 700) return { label: 'Ligero', tone: 'light' }
-  if (strengthScore < 2200) return { label: 'Balanceado', tone: 'balanced' }
-  return { label: 'Potente', tone: 'pro' }
+  if (strengthScore < 700) return { label: 'Light', tone: 'light' }
+  if (strengthScore < 2200) return { label: 'Balanced', tone: 'balanced' }
+  return { label: 'Powerful', tone: 'pro' }
 }
 
 const PROCESSING_STEPS = [
-  'Validando archivo PDF',
-  'Leyendo páginas con PDF.js',
-  'Aplicando OCR a páginas escaneadas',
-  'Generando resumen con Oxlo',
-  'Generando mapa mental',
-  'Generando mapa conceptual',
-  'Finalizando',
+  'Validating PDF file',
+  'Reading pages with PDF.js',
+  'Applying OCR to scanned pages',
+  'Generating summary with Oxlo',
+  'Generating mind map',
+  'Generating concept map',
+  'Finalizing',
 ]
 
 const RESULT_TABS: { id: ResultTab; label: string; icon: IconType }[] = [
-  { id: 'summary',    label: 'Resumen',         icon: FiFileText },
-  { id: 'mindmap',    label: 'Mapa Mental',     icon: FiGitBranch },
-  { id: 'conceptmap', label: 'Mapa Conceptual', icon: FiMap },
-  { id: 'keypoints',  label: 'Puntos Clave',    icon: FiTarget },
-  { id: 'markdown',   label: 'Archivo .md',     icon: FiList },
-  { id: 'raw',        label: 'Texto extraído',  icon: FiFileText },
+  { id: 'summary',    label: 'Summary',         icon: FiFileText },
+  { id: 'mindmap',    label: 'Mind Map',        icon: FiGitBranch },
+  { id: 'conceptmap', label: 'Concept Map',     icon: FiMap },
+  { id: 'keypoints',  label: 'Key Points',      icon: FiTarget },
+  { id: 'markdown',   label: '.md File',        icon: FiList },
+  { id: 'raw',        label: 'Extracted Text',  icon: FiFileText },
 ]
 
 function formatBytes(bytes: number): string {
@@ -193,7 +193,7 @@ export default function Dashboard() {
 
   const runFallbackMode = (file: File, extracted: ExtractedPdf): void => {
     const fallbackText    = extracted.text.slice(0, 1400)
-    const fallbackSummary = `Resumen local de respaldo:\n\n${fallbackText}${extracted.text.length > 1400 ? '…' : ''}`
+    const fallbackSummary = `Local fallback summary:\n\n${fallbackText}${extracted.text.length > 1400 ? '...' : ''}`
     const points          = simpleKeyPoints(extracted.text)
     const localMindMap    = fallbackMindMap(file.name, fallbackSummary, points)
     const localConceptMap = fallbackConceptMap(file.name, fallbackSummary, points)
@@ -214,7 +214,7 @@ export default function Dashboard() {
     setFileSize(file.size)
 
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setErrorMessage('El archivo debe ser un PDF válido.')
+      setErrorMessage('The file must be a valid PDF.')
       setAppState('idle')
       return
     }
@@ -274,7 +274,7 @@ export default function Dashboard() {
       setDisplayLabel(PROCESSING_STEPS[6])
       setAppState('done'); setActiveTab('summary')
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Error inesperado procesando el PDF.'
+      const message = error instanceof Error ? error.message : 'Unexpected error while processing the PDF.'
       setErrorMessage(message)
       setAppState('idle')
     }
@@ -305,7 +305,7 @@ export default function Dashboard() {
     setMindMap(null); setConceptMap(null); setActiveTab('summary')
     setChatMessages([]); setChatInput(''); setChatSending(false)
     setChatModelOptions([]); setSelectedChatModel('')
-    // Limpiar input file para que se pueda subir el mismo archivo de nuevo
+    // Reset file input so users can upload the same file again
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -328,12 +328,12 @@ export default function Dashboard() {
       })
       setChatMessages((prev) => [...prev, { role: 'assistant', content: response }])
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo completar la respuesta.'
+      const message = error instanceof Error ? error.message : 'Could not complete the response.'
       const timeoutHints = [
         '504',
         'Gateway Timeout',
-        'tardo demasiado',
-        'Tiempo de espera agotado',
+        'took too long',
+        'request timeout',
       ]
       const isTimeout = timeoutHints.some((hint) => message.includes(hint))
 
@@ -343,7 +343,7 @@ export default function Dashboard() {
           role: 'assistant',
           content: isTimeout
             ? CHAT_TIMEOUT_FRIENDLY_MESSAGE
-            : `No pude responder con ese modelo. Detalle: ${message}`,
+            : `I could not answer with that model. Detail: ${message}`,
         },
       ])
     } finally {
@@ -362,7 +362,7 @@ export default function Dashboard() {
       await navigator.clipboard.writeText(value)
       showCopyFeedback(label)
     } catch {
-      setErrorMessage('No se pudo copiar al portapapeles.')
+      setErrorMessage('Could not copy to clipboard.')
     }
   }
 
@@ -377,14 +377,14 @@ export default function Dashboard() {
   }
 
   const quickPrompts = [
-    'Resume este PDF en 5 bullets accionables.',
-    'Que partes son mas importantes para estudiar?',
-    'Detecta contradicciones o errores potenciales.',
-    'Genera 6 preguntas tipo examen con respuestas.',
+    'Summarize this PDF in 5 actionable bullets.',
+    'Which sections are the most important to study?',
+    'Detect contradictions or potential errors.',
+    'Generate 6 exam-style questions with answers.',
   ]
 
-  const selectedModelName = selectedModelMeta?.displayName ?? 'Selecciona un modelo'
-  const selectedModelCategory = selectedModelMeta?.category ?? 'Sin categoria'
+  const selectedModelName = selectedModelMeta?.displayName ?? 'Select a model'
+  const selectedModelCategory = selectedModelMeta?.category ?? 'Uncategorized'
 
   // ── render ─────────────────────────────────────────────────────
   return (
@@ -400,17 +400,17 @@ export default function Dashboard() {
 
         <nav className="db-nav">
           <div className="db-nav-label">Workspace</div>
-          {/* Único item funcional: el documento activo */}
+          {/* Single functional item: active document */}
           <div className="db-nav-item db-nav-item--active">
             <span><FiFileText /></span>
-            {appState === 'idle'       && 'Nuevo análisis'}
-            {appState === 'processing' && 'Procesando…'}
-            {appState === 'done'       && (fileName || 'Documento')}
+            {appState === 'idle'       && 'New analysis'}
+            {appState === 'processing' && 'Processing...'}
+            {appState === 'done'       && (fileName || 'Document')}
           </div>
         </nav>
 
         <div className="db-sidebar-footer">
-          <Link to="/" className="db-back-link">← Volver al inicio</Link>
+          <Link to="/" className="db-back-link">← Back to home</Link>
         </div>
       </aside>
 
@@ -419,8 +419,8 @@ export default function Dashboard() {
         {/* ── Topbar ── */}
         <header className="db-topbar">
           <div className="db-topbar-title">
-            {appState === 'idle'       && 'Nuevo análisis'}
-            {appState === 'processing' && 'Procesando documento…'}
+            {appState === 'idle'       && 'New analysis'}
+            {appState === 'processing' && 'Processing document...'}
             {appState === 'done'       && <span className="db-topbar-filename">{fileName}</span>}
           </div>
 
@@ -430,7 +430,7 @@ export default function Dashboard() {
             )}
             {appState === 'done' && (
               <button className="db-btn-ghost" onClick={handleReset}>
-                + Nuevo PDF
+                + New PDF
               </button>
             )}
           </div>
@@ -450,7 +450,7 @@ export default function Dashboard() {
                 onClick={handleFileClick}
                 role="button"
                 tabIndex={0}
-                aria-label="Zona para soltar archivo PDF"
+                aria-label="Drop PDF file area"
                 onKeyDown={(e) => e.key === 'Enter' && handleFileClick()}
               >
                 <input
@@ -462,19 +462,19 @@ export default function Dashboard() {
                 />
                 <div className="dropzone__icon">{isDragging ? <FiUploadCloud /> : <FiFileText />}</div>
                 <h2 className="dropzone__title">
-                  {isDragging ? 'Suelta el PDF aquí' : 'Analiza tu PDF con IA'}
+                  {isDragging ? 'Drop PDF here' : 'Analyze your PDF with AI'}
                 </h2>
                 <p className="dropzone__sub">
                   {isDragging
-                    ? 'Listo para analizar'
-                    : 'Arrastra un archivo o haz clic para seleccionarlo'}
+                    ? 'Ready to analyze'
+                    : 'Drag a file or click to select it'}
                 </p>
                 {!isDragging && (
                   <button className="dropzone__btn" onClick={(e) => { e.stopPropagation(); handleFileClick() }}>
-                    Seleccionar PDF
+                    Select PDF
                   </button>
                 )}
-                <p className="dropzone__hint">PDF · hasta 50 MB · máximo 500 páginas</p>
+                <p className="dropzone__hint">PDF · up to 50 MB · max 500 pages</p>
               </div>
 
               {errorMessage && (
@@ -494,7 +494,7 @@ export default function Dashboard() {
                 <div className="proc-file">
                   <div className="proc-file-icon"><FiFileText /></div>
                   <div>
-                    <div className="proc-filename">{fileName || 'documento.pdf'}</div>
+                    <div className="proc-filename">{fileName || 'document.pdf'}</div>
                     <div className="proc-meta">{formatBytes(fileSize)}</div>
                   </div>
                 </div>
@@ -545,8 +545,8 @@ export default function Dashboard() {
                     <div className="results-filename">{fileName}</div>
                     <div className="results-meta">
                       {formatBytes(fileSize)}
-                      {pages > 0 && ` · ${pages} página${pages !== 1 ? 's' : ''}`}
-                      {ocrPages > 0 && ` · OCR en ${ocrPages} página${ocrPages !== 1 ? 's' : ''}`}
+                      {pages > 0 && ` · ${pages} page${pages !== 1 ? 's' : ''}`}
+                      {ocrPages > 0 && ` · OCR on ${ocrPages} page${ocrPages !== 1 ? 's' : ''}`}
                     </div>
                   </div>
                 </div>
@@ -575,16 +575,16 @@ export default function Dashboard() {
               {/* Panel content */}
               <div className="results-body" role="tabpanel">
 
-                {/* Resumen */}
+                {/* Summary */}
                 {activeTab === 'summary' && (
                   <div className="result-panel">
                     <div className="rp-header">
-                      <h3>Resumen ejecutivo</h3>
-                      <button className="rp-copy" onClick={() => void copyToClipboard(summary, '¡Resumen copiado!')}>
-                        Copiar
+                      <h3>Executive summary</h3>
+                      <button className="rp-copy" onClick={() => void copyToClipboard(summary, 'Summary copied!')}>
+                        Copy
                       </button>
                     </div>
-                    <p className="rp-meta">Generado desde el texto extraído del PDF</p>
+                    <p className="rp-meta">Generated from extracted PDF text</p>
                     <div className="rp-body">
                       {summary.split('\n').filter(Boolean).map((line, index) => (
                         <p key={index}>{line}</p>
@@ -593,40 +593,40 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Mapa Mental */}
+                {/* Mind map */}
                 {activeTab === 'mindmap' && (
                   <MindMapPanel
                     mindMap={mindMap}
                     flow={mindMapFlow}
-                    onCopyJson={() => void copyToClipboard(JSON.stringify(mindMap, null, 2), '¡JSON copiado!')}
+                    onCopyJson={() => void copyToClipboard(JSON.stringify(mindMap, null, 2), 'JSON copied!')}
                   />
                 )}
 
-                {/* Mapa Conceptual */}
+                {/* Concept map */}
                 {activeTab === 'conceptmap' && (
                   <ConceptMapPanel
                     conceptMap={conceptMap}
                     flow={conceptMapFlow}
-                    onCopyJson={() => void copyToClipboard(JSON.stringify(conceptMap, null, 2), '¡JSON copiado!')}
+                    onCopyJson={() => void copyToClipboard(JSON.stringify(conceptMap, null, 2), 'JSON copied!')}
                   />
                 )}
 
-                {/* Puntos Clave */}
+                {/* Key points */}
                 {activeTab === 'keypoints' && (
                   <div className="result-panel">
                     <div className="rp-header">
-                      <h3>Puntos clave</h3>
-                      <button className="rp-copy" onClick={() => void copyToClipboard(keyPoints.join('\n'), '¡Puntos copiados!')}>
-                        Copiar
+                      <h3>Key points</h3>
+                      <button className="rp-copy" onClick={() => void copyToClipboard(keyPoints.join('\n'), 'Key points copied!')}>
+                        Copy
                       </button>
                     </div>
-                    <p className="rp-meta">Frases principales extraídas del documento</p>
+                    <p className="rp-meta">Top sentences extracted from the document</p>
                     <div className="keypoints-grid">
                       <div className="kp-category">
-                        <div className="kp-cat-header"><span><FiTarget /></span><span>Hallazgos principales</span></div>
+                        <div className="kp-cat-header"><span><FiTarget /></span><span>Main findings</span></div>
                         <ul>
                           {keyPoints.length === 0
-                            ? <li><span className="kp-bullet" />No se encontraron frases suficientemente largas.</li>
+                            ? <li><span className="kp-bullet" />No sufficiently long sentences were found.</li>
                             : keyPoints.map((item, index) => (
                                 <li key={index}><span className="kp-bullet" />{item}</li>
                               ))
@@ -641,17 +641,17 @@ export default function Dashboard() {
                 {activeTab === 'markdown' && (
                   <div className="result-panel">
                     <div className="rp-header">
-                      <h3>Archivo .md</h3>
+                      <h3>.md file</h3>
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button className="rp-copy rp-download" onClick={downloadMarkdown}>
-                          ↓ Descargar
+                          ↓ Download
                         </button>
-                        <button className="rp-copy" onClick={() => void copyToClipboard(markdown, '¡Markdown copiado!')}>
-                          Copiar
+                        <button className="rp-copy" onClick={() => void copyToClipboard(markdown, 'Markdown copied!')}>
+                          Copy
                         </button>
                       </div>
                     </div>
-                    <p className="rp-meta">Markdown optimizado para usar como contexto en asistentes de IA</p>
+                    <p className="rp-meta">Markdown optimized for AI assistant context</p>
                     <div className="md-preview">
                       <div className="md-header">
                         <span className="code-dot" style={{ background: '#ff5f56' }} />
@@ -666,18 +666,18 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Texto extraído */}
+                {/* Extracted text */}
                 {activeTab === 'raw' && (
                   <div className="result-panel">
                     <div className="rp-header">
-                      <h3>Texto extraído</h3>
-                      <button className="rp-copy" onClick={() => void copyToClipboard(extractedText, '¡Texto copiado!')}>
-                        Copiar
+                      <h3>Extracted text</h3>
+                      <button className="rp-copy" onClick={() => void copyToClipboard(extractedText, 'Text copied!')}>
+                        Copy
                       </button>
                     </div>
                     <p className="rp-meta">
-                      Fuente completa del PDF · {extractedText.length.toLocaleString()} caracteres
-                      {ocrPages > 0 && ` · ${ocrPages} página${ocrPages !== 1 ? 's' : ''} vía OCR`}
+                      Full PDF source · {extractedText.length.toLocaleString()} characters
+                      {ocrPages > 0 && ` · ${ocrPages} page${ocrPages !== 1 ? 's' : ''} via OCR`}
                     </p>
                     <div className="md-preview">
                       <div className="md-header">
@@ -686,7 +686,7 @@ export default function Dashboard() {
                         <span className="code-dot" style={{ background: '#27c93f' }} />
                         <span className="md-filename">raw-text.txt</span>
                       </div>
-                      <pre className="md-body"><code>{extractedText || 'Sin texto extraído.'}</code></pre>
+                      <pre className="md-body"><code>{extractedText || 'No extracted text.'}</code></pre>
                     </div>
                   </div>
                 )}
@@ -698,11 +698,11 @@ export default function Dashboard() {
                 <div className="db-chat-card">
                   <div className="db-chat-head">
                     <h3>Oxlo Chat</h3>
-                    <span className="db-chat-sub">Contexto del documento cargado</span>
+                    <span className="db-chat-sub">Context from the uploaded document</span>
                   </div>
 
                   <div className="chat-model-row">
-                    <label htmlFor="chat-model-trigger">Modelo IA (debil → fuerte)</label>
+                    <label htmlFor="chat-model-trigger">AI model (light to strong)</label>
                     <div className="chat-model-shell" ref={modelMenuRef}>
                       <button
                         id="chat-model-trigger"
@@ -715,7 +715,7 @@ export default function Dashboard() {
                         }}
                         aria-haspopup="listbox"
                         aria-expanded={isModelMenuOpen}
-                        aria-label="Selector de modelo IA"
+                        aria-label="AI model selector"
                         disabled={chatModelOptions.length === 0}
                       >
                         <span className="chat-model-trigger-main">{selectedModelName}</span>
@@ -724,7 +724,7 @@ export default function Dashboard() {
                       </button>
 
                       {isModelMenuOpen && chatModelOptions.length > 0 && (
-                        <div className="chat-model-menu" role="listbox" aria-label="Modelos IA disponibles">
+                        <div className="chat-model-menu" role="listbox" aria-label="Available AI models">
                           {chatModelOptions.map((option, index) => {
                             const isSelected = selectedChatModel === option.model
                             return (
@@ -782,12 +782,12 @@ export default function Dashboard() {
 
                   <div className="chat-thread" ref={chatThreadRef}>
                     {chatMessages.length === 0 && (
-                      <div className="chat-empty">Haz una pregunta sobre el PDF para empezar.</div>
+                      <div className="chat-empty">Ask a question about the PDF to get started.</div>
                     )}
 
                     {chatMessages.map((message, index) => (
                       <div key={`${message.role}-${index}`} className={`chat-message chat-message--${message.role}`}>
-                        <div className="chat-message-role">{message.role === 'user' ? 'Tu' : 'Oxlo'}</div>
+                        <div className="chat-message-role">{message.role === 'user' ? 'You' : 'Oxlo'}</div>
                         <div className="chat-message-text">{message.content}</div>
                       </div>
                     ))}
@@ -795,7 +795,7 @@ export default function Dashboard() {
                     {chatSending && (
                       <div className="chat-message chat-message--assistant">
                         <div className="chat-message-role">Oxlo</div>
-                        <div className="chat-message-text">Pensando respuesta...</div>
+                        <div className="chat-message-text">Thinking...</div>
                       </div>
                     )}
                   </div>
@@ -804,7 +804,7 @@ export default function Dashboard() {
                     <textarea
                       className="chat-input"
                       value={chatInput}
-                      placeholder="Pregunta sobre el PDF..."
+                      placeholder="Ask about the PDF..."
                       onChange={(event) => setChatInput(event.target.value)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' && !event.shiftKey) {
@@ -818,7 +818,7 @@ export default function Dashboard() {
                       onClick={() => void sendChatMessage()}
                       disabled={chatSending || !selectedChatModel || chatInput.trim().length === 0}
                     >
-                      Enviar
+                      Send
                     </button>
                   </div>
                 </div>

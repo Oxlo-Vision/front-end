@@ -1,7 +1,7 @@
 import type { SkillFile } from './types'
 
 function sanitizeBaseName(fileName: string): string {
-  return (fileName || 'documento')
+  return (fileName || 'document')
     .replace(/\.pdf$/i, '')
     .replace(/[^a-zA-Z0-9_-]+/g, '-')
     .replace(/-+/g, '-')
@@ -11,43 +11,43 @@ function sanitizeBaseName(fileName: string): string {
 
 export function fallbackSkillFiles(fileName: string, summary: string, keyPoints: string[], markdown: string): SkillFile[] {
   const base = sanitizeBaseName(fileName)
-  const keyPointText = keyPoints.map((point) => `- ${point}`).join('\n') || '- Sin puntos clave.'
+  const keyPointText = keyPoints.map((point) => `- ${point}`).join('\n') || '- No key points available.'
 
   const promptContent = [
     `# ${base}.prompt.md`,
     '',
-    '## Rol',
-    'Actua como asistente experto en el tema de este documento.',
+    '## Role',
+    'Act as an expert assistant in the topic covered by this document.',
     '',
-    '## Objetivo',
-    'Responder preguntas con precision usando solo el contexto proporcionado.',
+    '## Goal',
+    'Answer questions precisely using only the provided context.',
     '',
-    '## Contexto base',
+    '## Base context',
     summary,
     '',
-    '## Puntos clave',
+    '## Key points',
     keyPointText,
   ].join('\n')
 
   const knowledgeContent = [
     `# ${base}.knowledge.md`,
     '',
-    '## Resumen',
+    '## Summary',
     summary,
     '',
-    '## Markdown de referencia',
+    '## Reference markdown',
     markdown,
   ].join('\n')
 
   return [
     {
       fileName: `${base}.prompt.md`,
-      description: 'Prompt operativo para asistentes IA (Copilot, ChatGPT, etc).',
+      description: 'Operational prompt for AI assistants (Copilot, ChatGPT, etc).',
       content: promptContent,
     },
     {
       fileName: `${base}.knowledge.md`,
-      description: 'Documento de conocimiento para alimentar contexto reutilizable.',
+      description: 'Knowledge document for reusable context.',
       content: knowledgeContent,
     },
   ]

@@ -1,47 +1,47 @@
 # Oxlo Vision
 
-Oxlo vision es un proyecto para la hackathon de Oxlo.ai
-es una plataforma que permite extraer informacion de archivos pdf
-a diferencia de otras esta potenciada con las ia's que ofrece Oxlo.ai 
-Oxlo vision aspira a 
-- leer documentos pdf y tambien los tipicos pdf que basicamente son pura imagenes y no
-  permiten copiar y pegar 
-- una vez extraido el contenido Oxlo vision aspira a hacer un buen RESUMEN del documento
-- mapas mentales del documento pdf extraido
-- mapas conceptuales del documento
-- archivos .md y skills para que los programadores los usen en con sus inteligencias           artificiales de preferencia
-- oxlo vision tambien aspira a poder hacer diagramas a partir de los pdf para los informaticos y no informaticos (diagramas, uml, modelos er (bases de datos), entre otros)
-- oxlo vision aspira a poder orquestar todas las ias proveidas por el back end de forma optima
-para ofrecer los mejores resultados
-ya esta listo un microservicio en micronaut con java para el proyecto con su respectiva documentacion
+Oxlo Vision is a project created for the Oxlo.ai hackathon.
+It is a platform that extracts information from PDF files.
+Unlike many alternatives, it is powered by the AI models provided by Oxlo.ai.
+
+Oxlo Vision aims to:
+- Read regular PDFs and scanned PDFs that are mostly images and do not allow copy-paste
+- Generate high-quality summaries from extracted content
+- Build mind maps from PDF content
+- Build concept maps from PDF content
+- Produce .md files and skills that developers can use with their preferred AI assistants
+- Generate diagrams from PDFs for both technical and non-technical users (UML, ER models, and more)
+- Orchestrate all AI capabilities provided by the backend in an efficient way
+
+The project also includes a Micronaut + Java backend microservice with its documentation.
 
 ## Checklist Front-end
 
-- [x] Subida de archivos PDF desde drag and drop o selector.
-- [x] Extraccion de texto desde PDFs normales usando PDF.js.
-- [x] Soporte de OCR para PDFs escaneados (paginas sin texto seleccionable).
-- [x] Generacion de resumen usando endpoint del backend `/v1/chat/completions`.
-- [x] Visualizacion de resultados en tabs: resumen, puntos clave, markdown y texto extraido.
-- [x] Generacion de mapas mentales basada en contenido real del PDF (React Flow).
-- [x] Generacion de mapas conceptuales basada en contenido real del PDF.
-- [x] Chat sobre el PDF cargado con seleccion de modelo Oxlo (debil a fuerte).
-- [x] Generacion de skills listas para asistentes IA (copiar y pegar).
-- [x] Exportacion de diagramas UML/ER desde contenido procesado.
+- [x] PDF upload with drag and drop or file picker.
+- [x] Text extraction from regular PDFs using PDF.js.
+- [x] OCR support for scanned PDFs (pages without selectable text).
+- [x] Summary generation using backend endpoint `/v1/chat/completions`.
+- [x] Results shown in tabs: summary, key points, markdown, and extracted text.
+- [x] Mind map generation based on real PDF content (React Flow).
+- [x] Concept map generation based on real PDF content.
+- [x] Chat over the uploaded PDF with Oxlo model selection (light to strong).
+- [x] Skill file generation for AI assistants (copy and paste ready).
+- [x] UML/ER diagram export from processed content.
 
-## Notas de ejecucion
+## Runtime Notes
 
-- Front-end usa `VITE_BACKEND_URL=/api` por defecto para desarrollo.
-- El proxy de Vite usa `BACKEND_URL` (si existe en `.env`) o fallback a `http://localhost:8080`.
-- Se puede configurar `VITE_BACKEND_URL` con otra ruta/base si se necesita.
-- OCR se aplica automaticamente cuando una pagina del PDF no contiene texto extraible.
+- Frontend uses `VITE_BACKEND_URL=/api` by default in development.
+- The Vite proxy uses `BACKEND_URL` (if defined in `.env`) or falls back to `http://localhost:8080`.
+- You can configure `VITE_BACKEND_URL` with another base path if needed.
+- OCR is applied automatically when a PDF page has no extractable text.
 
-## Deploy en Vercel
+## Deploy on Vercel
 
-- El proyecto incluye proxies serverless en `api/[...path].js` y `v1/[...path].js`.
-- El frontend mantiene `VITE_BACKEND_URL=/api` y nunca expone la URL real del backend en el bundle.
-- En Vercel configura esta variable de entorno:
+- The project includes serverless proxies in `api/[...path].js` and `v1/[...path].js`.
+- The frontend keeps `VITE_BACKEND_URL=/api` and never exposes the real backend URL in the bundle.
+- In Vercel, configure this environment variable:
   - `BACKEND_URL=https://oxlo-backend.onrender.com`
-- Mapeo del proxy:
+- Proxy mapping:
   - `/api/:path*` -> `BACKEND_URL/api/:path*`
   - `/v1/:path*` -> `BACKEND_URL/v1/:path*`
 - Build command: `npm run build`

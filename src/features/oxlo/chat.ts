@@ -188,7 +188,7 @@ async function chatCompletions(
         }
 
         if (response.status === 504) {
-          throw new Error('Ahora mismo oxlo.ai esta con mucha demanda y no llego a responder a tiempo (504). Intenta de nuevo en unos segundos o usa un modelo mas ligero.')
+          throw new Error('oxlo.ai is currently under high demand and did not respond in time (504). Please try again in a few seconds or use a lighter model.')
         }
 
         const suffix = detail ? `: ${detail}` : ''
@@ -199,7 +199,7 @@ async function chatCompletions(
       const content = data?.choices?.[0]?.message?.content
 
       if (!content || typeof content !== 'string') {
-        throw new Error('Respuesta de Oxlo sin contenido util.')
+        throw new Error('Oxlo response did not contain usable content.')
       }
 
       return content.trim()
@@ -212,7 +212,7 @@ async function chatCompletions(
       }
 
       if (isAbort) {
-        throw new Error('Tiempo de espera agotado al llamar Oxlo. Intenta con una pregunta mas corta o un modelo mas ligero.')
+        throw new Error('Request to Oxlo timed out. Try a shorter question or a lighter model.')
       }
 
       throw error
@@ -288,13 +288,13 @@ export async function chatAboutPdfWithOxlo(params: {
       {
         role: 'system',
         content:
-          'Responde en espanol usando el contexto del PDF cargado. Si la pregunta no se puede responder con el contexto, dilo claramente y sugiere que suban otro documento.',
+          'Answer in English using the uploaded PDF context. If the question cannot be answered from the context, say so clearly and suggest uploading another document.',
       },
       {
         role: 'user',
         content:
-          `Archivo: ${params.fileName}\n\nResumen del PDF:\n${summaryText}\n\nPuntos clave:\n${keyPointsText || '- Sin puntos clave.'}` +
-          `\n\nTexto del PDF (recortado):\n${contextText}\n\nPregunta del usuario:\n${params.question}`,
+          `File: ${params.fileName}\n\nPDF summary:\n${summaryText}\n\nKey points:\n${keyPointsText || '- No key points available.'}` +
+          `\n\nPDF text (trimmed):\n${contextText}\n\nUser question:\n${params.question}`,
       },
     ],
     900,
@@ -309,11 +309,11 @@ export async function generateSummaryWithOxlo(text: string): Promise<string> {
     [
       {
         role: 'system',
-        content: 'Eres un asistente que resume documentos tecnicos en espanol. Responde con claridad y precision.',
+        content: 'You are an assistant that summarizes technical documents in English. Respond clearly and precisely.',
       },
       {
         role: 'user',
-        content: `Resume este texto en espanol y agrega 5 puntos clave al final:\n\n${clippedText}`,
+        content: `Summarize this text in English and add 5 key points at the end:\n\n${clippedText}`,
       },
     ],
     700,
@@ -328,11 +328,11 @@ export async function generateMindMapWithOxlo(fileName: string, text: string, su
     [
       {
         role: 'system',
-        content: 'Responde solo JSON valido para mapa mental. No uses markdown.',
+        content: 'Return only valid JSON for a mind map. Do not use markdown.',
       },
       {
         role: 'user',
-        content: `Crea un mapa mental en JSON con esta forma exacta: {"centralTopic":"string","branches":[{"title":"string","children":["string"]}]}.\n\nNombre archivo: ${fileName}\n\nResumen:\n${clippedSummary}\n\nTexto:\n${clippedText}`,
+        content: `Create a mind map in JSON with this exact shape: {"centralTopic":"string","branches":[{"title":"string","children":["string"]}]}.\n\nFile name: ${fileName}\n\nSummary:\n${clippedSummary}\n\nText:\n${clippedText}`,
       },
     ],
     650,
@@ -347,7 +347,7 @@ export async function generateMindMapWithOxlo(fileName: string, text: string, su
   const parsed = JSON.parse(clean) as MindMapData
 
   if (!parsed.centralTopic || !Array.isArray(parsed.branches)) {
-    throw new Error('JSON de mapa mental invalido.')
+    throw new Error('Invalid mind map JSON.')
   }
 
   return {
@@ -370,15 +370,15 @@ export async function generateConceptMapWithOxlo(fileName: string, text: string,
     [
       {
         role: 'system',
-        content: 'Responde solo JSON valido para mapa conceptual. No uses markdown.',
+        content: 'Return only valid JSON for a concept map. Do not use markdown.',
       },
       {
         role: 'user',
         content:
-          `Genera un mapa conceptual del documento y responde JSON con este esquema exacto: ` +
+          `Generate a concept map from the document and return JSON with this exact schema: ` +
           `{"title":"string","nodes":[{"id":"string","label":"string","kind":"core|concept|detail"}],"relations":[{"source":"string","target":"string","label":"string"}]}. ` +
-          `Usa ids cortos y unicos, al menos 5 nodos y 4 relaciones.\n\n` +
-          `Archivo: ${fileName}\n\nResumen:\n${clippedSummary}\n\nTexto:\n${clippedText}`,
+          `Use short unique IDs, at least 5 nodes and 4 relations.\n\n` +
+          `File: ${fileName}\n\nSummary:\n${clippedSummary}\n\nText:\n${clippedText}`,
       },
     ],
     900,
@@ -393,7 +393,7 @@ export async function generateConceptMapWithOxlo(fileName: string, text: string,
   const parsed = JSON.parse(clean) as ConceptMapData
 
   if (!parsed.title || !Array.isArray(parsed.nodes) || !Array.isArray(parsed.relations)) {
-    throw new Error('JSON de mapa conceptual invalido.')
+    throw new Error('Invalid concept map JSON.')
   }
 
   return {
@@ -411,7 +411,7 @@ export async function generateConceptMapWithOxlo(fileName: string, text: string,
       .map((relation) => ({
         source: relation.source,
         target: relation.target,
-        label: typeof relation.label === 'string' ? relation.label : 'relaciona',
+        label: typeof relation.label === 'string' ? relation.label : 'relates to',
       }))
       .slice(0, 30),
   }
@@ -425,17 +425,17 @@ export async function generateDiagramWithOxlo(fileName: string, text: string, su
     [
       {
         role: 'system',
-        content: 'Responde solo JSON valido sin markdown. Debes elegir el tipo de diagrama mas adecuado segun el contexto.',
+        content: 'Return only valid JSON without markdown. You must choose the most suitable diagram type based on context.',
       },
       {
         role: 'user',
         content:
-          `Genera un diagrama contextual para este documento. ` +
-          `NO uses ER si el documento no trata de datos/entidades relacionales (por ejemplo biologia, historia, derecho). ` +
-          `Responde JSON exacto: ` +
+          `Generate a contextual diagram for this document. ` +
+          `DO NOT use ER if the document is not about relational data/entities (for example biology, history, or law). ` +
+          `Return exact JSON: ` +
           `{"kind":"uml_class|uml_sequence|er|flowchart","title":"string","rationale":"string","mermaid":"string"}. ` +
-          `El campo mermaid debe ser codigo Mermaid valido del tipo elegido.\n\n` +
-          `Archivo: ${fileName}\n\nResumen:\n${clippedSummary}\n\nTexto:\n${clippedText}`,
+          `The mermaid field must be valid Mermaid code for the selected type.\n\n` +
+          `File: ${fileName}\n\nSummary:\n${clippedSummary}\n\nText:\n${clippedText}`,
       },
     ],
     1000,
@@ -451,7 +451,7 @@ export async function generateDiagramWithOxlo(fileName: string, text: string, su
   const allowedKinds: DiagramKind[] = ['uml_class', 'uml_sequence', 'er', 'flowchart']
 
   if (!parsed.kind || !allowedKinds.includes(parsed.kind) || !parsed.mermaid || !parsed.title) {
-    throw new Error('JSON de diagrama invalido.')
+    throw new Error('Invalid diagram JSON.')
   }
 
   const normalizedMermaid = normalizeMermaidScript(parsed.mermaid, parsed.kind)
@@ -459,7 +459,7 @@ export async function generateDiagramWithOxlo(fileName: string, text: string, su
   return {
     kind: parsed.kind,
     title: parsed.title,
-    rationale: parsed.rationale || 'Seleccionado por contexto del documento.',
+    rationale: parsed.rationale || 'Selected based on document context.',
     mermaid: normalizedMermaid,
   }
 }
@@ -480,21 +480,21 @@ export async function generateSkillFilesWithOxlo(
 ): Promise<SkillFile[]> {
   const clippedSummary = summary.slice(0, 2000)
   const clippedMarkdown = markdown.slice(0, 6500)
-  const points = keyPoints.slice(0, 8).map((point) => `- ${point}`).join('\n') || '- Sin puntos clave suficientes.'
+  const points = keyPoints.slice(0, 8).map((point) => `- ${point}`).join('\n') || '- Not enough key points.'
 
   const content = await chatCompletions(
     [
       {
         role: 'system',
-        content: 'Responde solo JSON valido sin markdown.',
+        content: 'Return only valid JSON without markdown.',
       },
       {
         role: 'user',
         content:
-          `Crea archivos de skills reutilizables para asistentes IA sobre este PDF. ` +
-          `Responde JSON exacto: {"files":[{"fileName":"string","description":"string","content":"string"}]}. ` +
-          `Genera exactamente 2 o 3 archivos Markdown, incluyendo un prompt operativo y una base de conocimiento.\n\n` +
-          `Archivo: ${fileName}\n\nResumen:\n${clippedSummary}\n\nPuntos clave:\n${points}\n\nMarkdown:\n${clippedMarkdown}`,
+          `Create reusable skill files for AI assistants based on this PDF. ` +
+          `Return exact JSON: {"files":[{"fileName":"string","description":"string","content":"string"}]}. ` +
+          `Generate exactly 2 or 3 Markdown files, including an operational prompt and a knowledge base.\n\n` +
+          `File: ${fileName}\n\nSummary:\n${clippedSummary}\n\nKey points:\n${points}\n\nMarkdown:\n${clippedMarkdown}`,
       },
     ],
     1200,
@@ -509,14 +509,14 @@ export async function generateSkillFilesWithOxlo(
   const parsed = JSON.parse(clean) as SkillResponse
 
   if (!Array.isArray(parsed.files) || parsed.files.length === 0) {
-    throw new Error('JSON de skills invalido.')
+    throw new Error('Invalid skills JSON.')
   }
 
   return parsed.files
     .filter((file) => file && typeof file.fileName === 'string' && typeof file.content === 'string')
     .map((file) => ({
       fileName: file.fileName,
-      description: typeof file.description === 'string' ? file.description : 'Skill generado por IA.',
+      description: typeof file.description === 'string' ? file.description : 'AI-generated skill file.',
       content: file.content,
     }))
     .slice(0, 4)
