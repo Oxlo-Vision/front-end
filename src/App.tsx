@@ -24,49 +24,49 @@ const features = [
   {
     icon: <FiFileText />,
     title: 'Resumen Inteligente',
-    desc: 'Extrae lo esencial de cualquier PDF en segundos. La IA comprende el contexto y genera resúmenes precisos y coherentes.',
+    desc: 'Convierte PDFs extensos en resúmenes claros y accionables, manteniendo el contexto esencial del documento.',
   },
   {
     icon: <FiGitBranch />,
     title: 'Mapas Conceptuales',
-    desc: 'Visualiza las relaciones entre ideas. Genera diagramas conectados automáticamente desde el contenido del documento.',
+    desc: 'Organiza ideas, conceptos y relaciones en diagramas claros para estudiar, explicar o presentar mejor la información.',
   },
   {
     icon: <FiBookOpen />,
     title: 'Mapas Mentales',
-    desc: 'Transforma textos complejos en estructuras jerárquicas visuales, perfectas para el estudio y la retención.',
+    desc: 'Estructura el contenido en ramas jerárquicas para aprender más rápido y retener lo importante.',
   },
   {
     icon: <FiTarget />,
     title: 'Puntos Clave',
-    desc: 'Identifica y extrae los argumentos principales, datos críticos y conclusiones del documento de forma automática.',
-  },
-  {
-    icon: <FiList />,
-    title: 'Archivos .MD para IA',
-    desc: 'Exporta en formato Markdown optimizado para GitHub Copilot y otros asistentes. Contexto listo para usar.',
+    desc: 'Identifica de forma automática los hallazgos más relevantes para estudiar, investigar o tomar decisiones.',
   },
   {
     icon: <FiZap />,
-    title: 'Skills & Integraciones',
-    desc: 'Genera skills personalizadas para integrar el conocimiento del PDF en tus flujos de trabajo de IA favoritos.',
+    title: 'Chat Contextual del Documento',
+    desc: 'Haz preguntas en lenguaje natural sobre el PDF y recibe respuestas basadas en su contenido.',
+  },
+  {
+    icon: <FiList />,
+    title: 'Exportables Listos para Usar',
+    desc: 'Descarga Markdown y texto extraído para compartir, documentar o reutilizar en otros flujos de trabajo.',
   },
 ]
 
 const steps = [
-  { num: '01', title: 'Sube tu PDF', desc: 'Arrastra o selecciona cualquier documento PDF desde tu dispositivo.' },
-  { num: '02', title: 'Elige el modo', desc: 'Selecciona qué tipo de extracción necesitas: resumen, mapa, puntos clave…' },
-  { num: '03', title: 'La IA procesa', desc: 'Nuestros modelos analizan el contenido con precisión y contexto completo.' },
-  { num: '04', title: 'Descarga y usa', desc: 'Obtén tus resultados en segundos listos para usar o integrar.' },
+  { num: '01', title: 'Sube cualquier PDF', desc: 'Carga apuntes, papers, manuales, contratos, reportes o documentación técnica.' },
+  { num: '02', title: 'Extracción y OCR', desc: 'La plataforma lee el contenido y recupera texto incluso en documentos escaneados.' },
+  { num: '03', title: 'Análisis con IA', desc: 'Genera resumen, mapas y puntos clave para entender el documento en menos tiempo.' },
+  { num: '04', title: 'Consulta y exporta', desc: 'Pregunta al chat sobre el contenido y descarga resultados listos para usar.' },
 ]
 
 const outputs = [
-  { icon: <FiFileText />, title: 'Resumen ejecutivo', desc: 'Texto conciso con las ideas más importantes del documento.' },
-  { icon: <FiLink2 />, title: 'Mapa conceptual', desc: 'Diagrama JSON/SVG listo para visualizar en cualquier herramienta.' },
-  { icon: <FiGitBranch />, title: 'Mapa mental', desc: 'Estructura jerárquica exportable en formato compatible con MindNode y Miro.' },
-  { icon: <FiTarget />, title: 'Puntos principales', desc: 'Lista curada de los argumentos y datos esenciales.' },
-  { icon: <FiList />, title: 'Archivo .md', desc: 'Markdown optimizado como contexto para GitHub Copilot y otros LLMs.' },
-  { icon: <FiTool />, title: 'Skill personalizada', desc: 'Integración lista para asistentes de IA como Copilot Chat.' },
+  { icon: <FiFileText />, title: 'Resumen ejecutivo', desc: 'Síntesis clara de las ideas más relevantes del PDF.' },
+  { icon: <FiLink2 />, title: 'Mapa conceptual', desc: 'Relación visual entre conceptos clave del documento.' },
+  { icon: <FiGitBranch />, title: 'Mapa mental', desc: 'Estructura jerárquica para estudiar o explicar contenidos complejos.' },
+  { icon: <FiTarget />, title: 'Puntos clave', desc: 'Lista priorizada de hallazgos importantes para acción rápida.' },
+  { icon: <FiList />, title: 'Texto extraído y Markdown', desc: 'Archivos listos para compartir, revisar o usar con asistentes de IA.' },
+  { icon: <FiTool />, title: 'Chat sobre el documento', desc: 'Respuestas puntuales basadas en el contenido del PDF cargado.' },
 ]
 
 // ── Component ──────────────────────────────────────────────────
@@ -87,7 +87,7 @@ export default function App() {
             <li><a href="#features">Características</a></li>
             <li><a href="#how">Cómo funciona</a></li>
             <li><a href="#outputs">Outputs</a></li>
-            <li><Link to="/app" className="nav__cta">Empezar gratis</Link></li>
+            <li><Link to="/app" className="nav__cta">Iniciar análisis</Link></li>
           </ul>
         </div>
       </nav>
@@ -99,23 +99,23 @@ export default function App() {
           <div className="hero__content">
             <div className="hero__badge">
               <span className="badge-dot" />
-              Potenciado por IA · Versión Beta
+              Para estudiantes, profesionales y equipos
             </div>
 
             <h1 className="hero__title">
-              Tu PDF.<br />
-              <em>Destilado</em> por IA.
+              Cualquier PDF.<br />
+              <em>Entendido</em> en minutos.
             </h1>
 
             <p className="hero__desc">
-              Oxlo Vision convierte documentos PDF complejos en resúmenes,
-              mapas mentales, puntos clave y archivos .md listos para tus
-              flujos de trabajo con IA — en segundos.
+              Oxlo Vision transforma documentos PDF complejos en resúmenes,
+              mapas y respuestas contextuales para estudiar, investigar,
+              trabajar y decidir mejor.
             </p>
 
             <div className="hero__actions">
               <Link to="/app" className="btn-primary">
-                <span>Empezar gratis</span>
+                <span>Iniciar análisis</span>
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
@@ -130,14 +130,14 @@ export default function App() {
           <div className="hero__visual">
             <div className="hero__badge-float hero__badge-float--tl">
               <span className="badge-float-dot" />
-              98% precisión
+              OCR + IA sobre cualquier PDF
             </div>
 
             <div className="hero__card">
               <div className="card__header">
                 <div className="card__icon"><FiFileText /></div>
                 <div>
-                  <div className="card__filename">research_paper_2024.pdf</div>
+                  <div className="card__filename">manual_redes_avanzadas.pdf</div>
                   <div className="card__size">2.4 MB · 87 páginas</div>
                 </div>
               </div>
@@ -155,9 +155,9 @@ export default function App() {
               <div className="card__outputs">
                 {[
                   { label: 'Resumen', active: true },
-                  { label: 'Mapa mental', active: true },
+                  { label: 'Mapa conceptual', active: true },
                   { label: 'Puntos clave', active: false },
-                  { label: 'Archivo .md', active: false },
+                  { label: 'Chat', active: false },
                 ].map((o) => (
                   <div key={o.label} className={`output-chip ${o.active ? 'active' : ''}`}>
                     <span className="chip-dot" />
@@ -169,7 +169,7 @@ export default function App() {
 
             <div className="hero__badge-float hero__badge-float--br">
               <span className="badge-float-dot" />
-              5s procesado
+              Respuesta contextual en segundos
             </div>
           </div>
         </div>
@@ -180,10 +180,10 @@ export default function App() {
         <div className="container">
           <div className="features__header">
             <div className="section-label">Capacidades</div>
-            <h2 className="section-title">Todo lo que necesitas de un PDF</h2>
+            <h2 className="section-title">Análisis documental para todo tipo de perfiles</h2>
             <p className="section-desc">
-              Oxlo Vision no solo resume — comprende, estructura y produce
-              información lista para humanos y para otras IAs.
+              Desde estudiantes hasta ingenieros, abogados o equipos de negocio:
+              sube un PDF y convierte contenido denso en conocimiento útil.
             </p>
           </div>
 
@@ -204,10 +204,9 @@ export default function App() {
         <div className="container how__inner">
           <div className="features__header how__header">
             <div className="section-label">Proceso</div>
-            <h2 className="section-title">Simple y ultrarrápido</h2>
+            <h2 className="section-title">Flujo simple para cualquier documento</h2>
             <p className="section-desc">
-              Cuatro pasos para convertir cualquier documento en conocimiento
-              estructurado y accionable.
+              De PDF a información accionable en cuatro pasos.
             </p>
           </div>
 
@@ -229,10 +228,9 @@ export default function App() {
           {/* Left — list */}
           <div>
             <div className="section-label">Outputs</div>
-            <h2 className="section-title">Obtén exactamente lo que necesitas</h2>
+            <h2 className="section-title">Resultados listos para tu mesa de trabajo</h2>
             <p className="section-desc">
-              Cada archivo generado está listo para usar directamente en tus herramientas
-              favoritas de productividad e IA.
+              Cada salida está pensada para estudio, investigación, redacción y trabajo colaborativo.
             </p>
 
             <div className="outputs__list">
@@ -260,18 +258,18 @@ export default function App() {
               {[
                 { ln: '1', parts: [{ cls: 'ck', t: '# ' }, { cls: 'cs', t: 'Resumen ejecutivo' }] },
                 { ln: '2', parts: [] },
-                { ln: '3', parts: [{ cls: 'cc', t: '> Este documento analiza los efectos de...' }] },
+                { ln: '3', parts: [{ cls: 'cc', t: '> Documento técnico sobre arquitectura de microservicios y observabilidad.' }] },
                 { ln: '4', parts: [] },
-                { ln: '5', parts: [{ cls: 'ck', t: '## ' }, { cls: 'cm', t: 'Puntos principales' }] },
-                { ln: '6', parts: [{ cls: 'cs', t: '- ' }, { cls: 'cc', t: 'El modelo XYZ supera en 12%...' }] },
-                { ln: '7', parts: [{ cls: 'cs', t: '- ' }, { cls: 'cc', t: 'Se identificaron 3 patrones clave...' }] },
-                { ln: '8', parts: [{ cls: 'cs', t: '- ' }, { cls: 'cc', t: 'La metodología empleada fue...' }] },
+                { ln: '5', parts: [{ cls: 'ck', t: '## ' }, { cls: 'cm', t: 'Puntos clave' }] },
+                { ln: '6', parts: [{ cls: 'cs', t: '- ' }, { cls: 'cc', t: 'El sistema reduce latencia media en un 18% tras separar el servicio de colas.' }] },
+                { ln: '7', parts: [{ cls: 'cs', t: '- ' }, { cls: 'cc', t: 'Se recomienda trazabilidad distribuida para incidentes en producción.' }] },
+                { ln: '8', parts: [{ cls: 'cs', t: '- ' }, { cls: 'cc', t: 'La adopción de métricas SLO mejora la priorización de errores críticos.' }] },
                 { ln: '9', parts: [] },
-                { ln: '10', parts: [{ cls: 'ck', t: '## ' }, { cls: 'cm', t: 'Mapa Conceptual' }] },
+                { ln: '10', parts: [{ cls: 'ck', t: '## ' }, { cls: 'cm', t: 'Mapa conceptual' }] },
                 { ln: '11', parts: [{ cls: 'cc', t: '```mermaid' }] },
                 { ln: '12', parts: [{ cls: 'cs', t: 'graph TD' }] },
-                { ln: '13', parts: [{ cls: 'cc', t: '  A[Concepto raíz] --> B[Idea 1]' }] },
-                { ln: '14', parts: [{ cls: 'cc', t: '  A --> C[Idea 2]' }] },
+                { ln: '13', parts: [{ cls: 'cc', t: '  A[Microservicios] --> B[Observabilidad]' }] },
+                { ln: '14', parts: [{ cls: 'cc', t: '  A --> C[Escalabilidad]' }] },
                 { ln: '15', parts: [{ cls: 'cc', t: '```' }] },
               ].map((row) => (
                 <div className="code-line" key={row.ln}>
@@ -296,16 +294,16 @@ export default function App() {
             Sin tarjeta de crédito
           </div>
           <h2>
-            Convierte tus PDFs en<br />
-            <span className="cyan">superpoderes</span> para tu IA
+            Convierte PDFs extensos en<br />
+            <span className="cyan">conocimiento accionable</span>
           </h2>
           <p>
-            Empieza gratis hoy. Sin configuración. Sin fricción.
-            Solo sube tu PDF y deja que Oxlo Vision haga el resto.
+            Carga tu documento, analiza con IA y consulta por chat contextual.
+            Menos tiempo leyendo de forma manual, más tiempo creando valor.
           </p>
           <div className="cta-banner__actions">
             <Link to="/app" className="btn-primary">
-              Empezar gratis — es gratis
+              Probar con un PDF
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
@@ -324,7 +322,7 @@ export default function App() {
                 <div className="nav__logo-icon"><LogoIcon /></div>
                 Oxlo<span>Vision</span>
               </a>
-              <p>Extractor de PDF potenciado por IA. Transforma documentos en conocimiento estructurado.</p>
+              <p>Plataforma de análisis de PDFs para estudiantes, profesionales y equipos de cualquier sector.</p>
             </div>
 
             <div className="footer__links">
@@ -354,7 +352,7 @@ export default function App() {
 
           <div className="footer__bottom">
             <span>© 2024 OxBuild — <span>Oxlo Vision</span>. Todos los derechos reservados.</span>
-            <span>Hecho con ❤️ y IA</span>
+            
           </div>
         </div>
       </footer>

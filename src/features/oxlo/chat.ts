@@ -188,7 +188,7 @@ async function chatCompletions(
         }
 
         if (response.status === 504) {
-          throw new Error('Oxlo tardo demasiado en responder (504 Gateway Timeout). Intenta de nuevo o usa un modelo mas ligero.')
+          throw new Error('Ahora mismo oxlo.ai esta con mucha demanda y no llego a responder a tiempo (504). Intenta de nuevo en unos segundos o usa un modelo mas ligero.')
         }
 
         const suffix = detail ? `: ${detail}` : ''

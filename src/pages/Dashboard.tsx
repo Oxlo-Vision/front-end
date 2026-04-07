@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import type { IconType } from 'react-icons'
 import {
   FiAlertTriangle,
+  FiCheck,
+  FiChevronDown,
   FiFileText,
   FiGitBranch,
   FiList,
@@ -29,9 +31,16 @@ import { conceptMapToFlow, fallbackConceptMap } from '../features/conceptmap/uti
 import type { ConceptMapData } from '../features/conceptmap/types'
 
 type AppState = 'idle' | 'processing' | 'done'
-type AiMode = 'unknown' | 'oxlo' | 'fallback'
 type ResultTab = 'summary' | 'mindmap' | 'conceptmap' | 'keypoints' | 'markdown' | 'raw'
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
+
+const CHAT_TIMEOUT_FRIENDLY_MESSAGE = 'Ahora mismo estamos con mucha demanda en oxlo.ai y no llegamos a responder a tiempo. Intenta de nuevo en unos segundos o usa un modelo mas ligero.'
+
+function getModelTier(strengthScore: number): { label: string; tone: 'light' | 'balanced' | 'pro' } {
+  if (strengthScore < 700) return { label: 'Ligero', tone: 'light' }
+  if (strengthScore < 2200) return { label: 'Balanceado', tone: 'balanced' }
+  return { label: 'Potente', tone: 'pro' }
+}
 
 const PROCESSING_STEPS = [
   'Validando archivo PDF',
@@ -81,9 +90,6 @@ export default function Dashboard() {
   const [errorMessage, setErrorMessage]   = useState<string | null>(null)
   const [copyFeedback, setCopyFeedback]   = useState<string | null>(null)
 
-  const [aiMode, setAiMode]               = useState<AiMode>('unknown')
-  const [aiModeDetail, setAiModeDetail]   = useState('Esperando procesamiento')
-
   const [fileName, setFileName]           = useState('')
   const [fileSize, setFileSize]           = useState(0)
   const [pages, setPages]                 = useState(0)
@@ -97,12 +103,23 @@ export default function Dashboard() {
   const [chatSending, setChatSending]     = useState(false)
   const [chatModelOptions, setChatModelOptions] = useState<ChatModelOption[]>([])
   const [selectedChatModel, setSelectedChatModel] = useState('')
+  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const chatThreadRef = useRef<HTMLDivElement>(null)
+  const modelMenuRef = useRef<HTMLDivElement>(null)
 
   const keyPoints   = useMemo(() => simpleKeyPoints(summary || extractedText), [summary, extractedText])
   const markdown    = useMemo(() => buildMarkdown(fileName, summary, keyPoints), [fileName, summary, keyPoints])
+  const selectedModelMeta = useMemo(() => {
+    if (!selectedChatModel) return null
+    return chatModelOptions.find((option) => option.model === selectedChatModel) ?? null
+  }, [chatModelOptions, selectedChatModel])
+  const selectedModelRank = useMemo(() => {
+    if (!selectedModelMeta) return null
+    const index = chatModelOptions.findIndex((option) => option.model === selectedModelMeta.model)
+    return index >= 0 ? index + 1 : null
+  }, [chatModelOptions, selectedModelMeta])
 
   const mindMapFlow = useMemo(() => {
     if (!mindMap) return { nodes: [], edges: [] }
@@ -142,6 +159,31 @@ export default function Dashboard() {
     thread.scrollTop = thread.scrollHeight
   }, [chatMessages, chatSending])
 
+  useEffect(() => {
+    if (!isModelMenuOpen) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (!modelMenuRef.current?.contains(target)) {
+        setIsModelMenuOpen(false)
+      }
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsModelMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isModelMenuOpen])
+
   // ── helpers ────────────────────────────────────────────────────
   const applyExtractionState = (extracted: ExtractedPdf): void => {
     setPages(extracted.pages)
@@ -149,7 +191,7 @@ export default function Dashboard() {
     setExtractedText(extracted.text)
   }
 
-  const runFallbackMode = (file: File, extracted: ExtractedPdf, reason: string): void => {
+  const runFallbackMode = (file: File, extracted: ExtractedPdf): void => {
     const fallbackText    = extracted.text.slice(0, 1400)
     const fallbackSummary = `Resumen local de respaldo:\n\n${fallbackText}${extracted.text.length > 1400 ? '…' : ''}`
     const points          = simpleKeyPoints(extracted.text)
@@ -159,15 +201,11 @@ export default function Dashboard() {
     setSummary(fallbackSummary)
     setMindMap(localMindMap)
     setConceptMap(localConceptMap)
-    setAiMode('fallback')
-    setAiModeDetail(`Modo local activo: ${reason}`)
   }
 
   // ── processing ─────────────────────────────────────────────────
   const processFile = useCallback(async (file: File) => {
     setErrorMessage(null)
-    setAiMode('unknown')
-    setAiModeDetail('Conectando con Oxlo…')
     setAppState('processing')
     setProcessStep(0)
     setProcessProgress(0)
@@ -195,7 +233,7 @@ export default function Dashboard() {
       applyExtractionState(extracted)
 
       if (!extracted.text || extracted.text.length < 40) {
-        runFallbackMode(file, extracted, 'No se extrajo texto suficiente')
+        runFallbackMode(file, extracted)
         setProcessStep(6); setProcessProgress(100)
         setDisplayLabel(PROCESSING_STEPS[6])
         setAppState('done'); setActiveTab('summary')
@@ -208,8 +246,6 @@ export default function Dashboard() {
       try {
         const aiSummary = await generateSummaryWithOxlo(extracted.text)
         setSummary(aiSummary)
-        setAiMode('oxlo')
-        setAiModeDetail('Generado con Oxlo API')
 
         setProcessStep(4); setProcessProgress(90)
         setDisplayLabel(PROCESSING_STEPS[4])
@@ -231,8 +267,7 @@ export default function Dashboard() {
           setConceptMap(fallbackConceptMap(file.name, aiSummary, simpleKeyPoints(aiSummary)))
         }
       } catch (summaryError) {
-        const reason = summaryError instanceof Error ? summaryError.message : 'No se pudo conectar al backend'
-        runFallbackMode(file, extracted, reason)
+        runFallbackMode(file, extracted)
       }
 
       setProcessStep(6); setProcessProgress(100)
@@ -242,8 +277,6 @@ export default function Dashboard() {
       const message = error instanceof Error ? error.message : 'Error inesperado procesando el PDF.'
       setErrorMessage(message)
       setAppState('idle')
-      setAiMode('fallback')
-      setAiModeDetail(`Error: ${message}`)
     }
   }, [])
 
@@ -267,7 +300,6 @@ export default function Dashboard() {
   const handleReset = () => {
     setAppState('idle'); setProcessStep(0); setProcessProgress(0)
     setDisplayLabel(''); setErrorMessage(null)
-    setAiMode('unknown'); setAiModeDetail('Esperando procesamiento')
     setFileName(''); setFileSize(0); setPages(0); setOcrPages(0)
     setExtractedText(''); setSummary('')
     setMindMap(null); setConceptMap(null); setActiveTab('summary')
@@ -297,9 +329,22 @@ export default function Dashboard() {
       setChatMessages((prev) => [...prev, { role: 'assistant', content: response }])
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudo completar la respuesta.'
+      const timeoutHints = [
+        '504',
+        'Gateway Timeout',
+        'tardo demasiado',
+        'Tiempo de espera agotado',
+      ]
+      const isTimeout = timeoutHints.some((hint) => message.includes(hint))
+
       setChatMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: `No pude responder con ese modelo. Detalle: ${message}` },
+        {
+          role: 'assistant',
+          content: isTimeout
+            ? CHAT_TIMEOUT_FRIENDLY_MESSAGE
+            : `No pude responder con ese modelo. Detalle: ${message}`,
+        },
       ])
     } finally {
       setChatSending(false)
@@ -338,6 +383,9 @@ export default function Dashboard() {
     'Genera 6 preguntas tipo examen con respuestas.',
   ]
 
+  const selectedModelName = selectedModelMeta?.displayName ?? 'Selecciona un modelo'
+  const selectedModelCategory = selectedModelMeta?.category ?? 'Sin categoria'
+
   // ── render ─────────────────────────────────────────────────────
   return (
     <div className="db-root">
@@ -363,15 +411,6 @@ export default function Dashboard() {
 
         <div className="db-sidebar-footer">
           <Link to="/" className="db-back-link">← Volver al inicio</Link>
-          <div
-            className={`ai-status ai-status--${aiMode} db-ai-pill`}
-            title={aiModeDetail}
-          >
-            <span className="ai-status-dot" />
-            {aiMode === 'oxlo'     && 'Oxlo API'}
-            {aiMode === 'fallback' && 'Modo local'}
-            {aiMode === 'unknown'  && 'IA en espera'}
-          </div>
         </div>
       </aside>
 
@@ -508,15 +547,6 @@ export default function Dashboard() {
                       {formatBytes(fileSize)}
                       {pages > 0 && ` · ${pages} página${pages !== 1 ? 's' : ''}`}
                       {ocrPages > 0 && ` · OCR en ${ocrPages} página${ocrPages !== 1 ? 's' : ''}`}
-                      {` · `}
-                      <span
-                        className={`results-ai-badge results-ai-badge--${aiMode}`}
-                        title={aiModeDetail}
-                      >
-                        {aiMode === 'oxlo'     && '● Oxlo API'}
-                        {aiMode === 'fallback' && '● Modo local'}
-                        {aiMode === 'unknown'  && '● IA desconocida'}
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -554,7 +584,7 @@ export default function Dashboard() {
                         Copiar
                       </button>
                     </div>
-                    <p className="rp-meta">Generado desde el texto extraído del PDF · {aiModeDetail}</p>
+                    <p className="rp-meta">Generado desde el texto extraído del PDF</p>
                     <div className="rp-body">
                       {summary.split('\n').filter(Boolean).map((line, index) => (
                         <p key={index}>{line}</p>
@@ -672,20 +702,70 @@ export default function Dashboard() {
                   </div>
 
                   <div className="chat-model-row">
-                    <label htmlFor="chat-model">Modelo (debil → fuerte)</label>
-                    <select
-                      id="chat-model"
-                      className="chat-model-select"
-                      value={selectedChatModel}
-                      onChange={(event) => setSelectedChatModel(event.target.value)}
-                    >
-                      {chatModelOptions.length === 0 && <option value="">Cargando modelos...</option>}
-                      {chatModelOptions.map((option) => (
-                        <option key={option.model} value={option.model}>
-                          {option.displayName} · {option.category}
-                        </option>
-                      ))}
-                    </select>
+                    <label htmlFor="chat-model-trigger">Modelo IA (debil → fuerte)</label>
+                    <div className="chat-model-shell" ref={modelMenuRef}>
+                      <button
+                        id="chat-model-trigger"
+                        type="button"
+                        className={`chat-model-trigger ${isModelMenuOpen ? 'chat-model-trigger--open' : ''}`}
+                        onClick={() => {
+                          if (chatModelOptions.length > 0) {
+                            setIsModelMenuOpen((prev) => !prev)
+                          }
+                        }}
+                        aria-haspopup="listbox"
+                        aria-expanded={isModelMenuOpen}
+                        aria-label="Selector de modelo IA"
+                        disabled={chatModelOptions.length === 0}
+                      >
+                        <span className="chat-model-trigger-main">{selectedModelName}</span>
+                        <span className="chat-model-trigger-sub">{selectedModelCategory}</span>
+                        <span className="chat-model-trigger-icon" aria-hidden="true"><FiChevronDown /></span>
+                      </button>
+
+                      {isModelMenuOpen && chatModelOptions.length > 0 && (
+                        <div className="chat-model-menu" role="listbox" aria-label="Modelos IA disponibles">
+                          {chatModelOptions.map((option, index) => {
+                            const isSelected = selectedChatModel === option.model
+                            return (
+                              <button
+                                key={option.model}
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                className={`chat-model-option ${isSelected ? 'chat-model-option--active' : ''}`}
+                                onClick={() => {
+                                  setSelectedChatModel(option.model)
+                                  setIsModelMenuOpen(false)
+                                }}
+                              >
+                                <span className="chat-model-option-name">{option.displayName}</span>
+                                <span className="chat-model-option-meta">{option.category} · #{index + 1}</span>
+                                <span className="chat-model-option-check" aria-hidden="true">
+                                  {isSelected ? <FiCheck /> : null}
+                                </span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {selectedModelMeta && (
+                      <div className="chat-model-meta" aria-live="polite">
+                        <span className={`chat-model-tier chat-model-tier--${getModelTier(selectedModelMeta.strengthScore).tone}`}>
+                          {getModelTier(selectedModelMeta.strengthScore).label}
+                        </span>
+                        <span className="chat-model-meta-text">
+                          {selectedModelMeta.displayName} · {selectedModelMeta.category}
+                        </span>
+                        {selectedModelRank && (
+                          <span className="chat-model-rank">
+                            {selectedModelRank} / {chatModelOptions.length}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="chat-quick-prompts">
